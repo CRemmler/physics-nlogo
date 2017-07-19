@@ -14,12 +14,15 @@ turtles-own [
   fixture-id
   fixture-settings
   fixture-shape
+  fixture-circle-coords ;; helpers for fixtures that are circles
 
   joint-index ;; joint-coords index
   joint-coords ;; helpers for joints
   joint-id
 
   old-body-id ;; body
+
+  angle
 
   id ;; fixutre, joint, target
 
@@ -51,7 +54,9 @@ to save-setup
    set code-to-setup-my-world (word code-to-setup-my-world "  set coords " coords " \n")
    set code-to-setup-my-world (word code-to-setup-my-world "  set body-behavior \"" body-behavior "\" \n")
    set code-to-setup-my-world (word code-to-setup-my-world "  set body-A-id " who " \n")
-   set code-to-setup-my-world (word code-to-setup-my-world "  set id " who " \n")
+;   set code-to-setup-my-world (word code-to-setup-my-world "  set id " who " \n")
+
+   set code-to-setup-my-world (word code-to-setup-my-world "  set heading " heading " \n")
    set code-to-setup-my-world (word code-to-setup-my-world "]  \n")
    set body-list lput who body-list
  ]
@@ -64,7 +69,7 @@ to save-setup
    set code-to-setup-my-world (word code-to-setup-my-world "  set fixture-settings " fixture-settings " \n")
    set code-to-setup-my-world (word code-to-setup-my-world "  set fixture-shape \"" fixture-shape "\" \n")
    set code-to-setup-my-world (word code-to-setup-my-world "  set body-A-id " body-A-id " \n")
-   set code-to-setup-my-world (word code-to-setup-my-world "  set id " who " \n")
+;   set code-to-setup-my-world (word code-to-setup-my-world "  set id " who " \n")
    set code-to-setup-my-world (word code-to-setup-my-world "]  \n")
  ]
 
@@ -73,7 +78,7 @@ to save-setup
    set code-to-setup-my-world (word code-to-setup-my-world "  set type-of-turtle \"target\" \n")
    set code-to-setup-my-world (word code-to-setup-my-world "  set coords " coords " \n")
    set code-to-setup-my-world (word code-to-setup-my-world "  set body-A-id " body-A-id " \n")
-   set code-to-setup-my-world (word code-to-setup-my-world "  set id " who " \n")
+ ;  set code-to-setup-my-world (word code-to-setup-my-world "  set id " who " \n")
    set code-to-setup-my-world (word code-to-setup-my-world "]  \n")
  ]
 
@@ -84,7 +89,7 @@ to save-setup
    set code-to-setup-my-world (word code-to-setup-my-world "  set joint-coords " joint-coords " \n")
    set code-to-setup-my-world (word code-to-setup-my-world "  set body-A-id " body-A-id " \n")
    set code-to-setup-my-world (word code-to-setup-my-world "  set body-B-id " body-B-id " \n")
-   set code-to-setup-my-world (word code-to-setup-my-world "  set id " who " \n")
+ ;  set code-to-setup-my-world (word code-to-setup-my-world "  set id " who " \n")
    set code-to-setup-my-world (word code-to-setup-my-world "]  \n")
  ]
 
@@ -105,23 +110,25 @@ to save-setup
  set code-to-setup-my-world (word code-to-setup-my-world "     if not (joint-id) [ set joint-id \"\" ]\n")
  set code-to-setup-my-world (word code-to-setup-my-world "     if not (old-body-id) [ set old-body-id \"\" ]\n")
  set code-to-setup-my-world (word code-to-setup-my-world "     if not (first-coord-id) [ set first-coord-id \"\" ]\n")
- set code-to-setup-my-world (word code-to-setup-my-world "    if not (prev-coord-id) [ set prev-coord-id \"\" ]\n")
+ set code-to-setup-my-world (word code-to-setup-my-world "     if not (prev-coord-id) [ set prev-coord-id \"\" ]\n")
+ set code-to-setup-my-world (word code-to-setup-my-world "     if not (angle) [ set angle \"\" ]\n")
  set code-to-setup-my-world (word code-to-setup-my-world "  ]\n")
 
 
  set code-to-setup-my-world (word code-to-setup-my-world "ask turtles with [ type-of-turtle = \"body\"] [\n")
+ set code-to-setup-my-world (word code-to-setup-my-world "  set id who\n")
  set code-to-setup-my-world (word code-to-setup-my-world "  let old-who body-A-id\n")
- set code-to-setup-my-world (word code-to-setup-my-world "  let new-who id \n")
- set code-to-setup-my-world (word code-to-setup-my-world "  ask turtles with [ body-A-id = old-who ] [ set body-A-id new-who ] \n")
- set code-to-setup-my-world (word code-to-setup-my-world "  ask turtles with [ body-B-id = old-who ] [ set body-B-id new-who ] \n")
+ set code-to-setup-my-world (word code-to-setup-my-world "  let new-who who \n")
+ set code-to-setup-my-world (word code-to-setup-my-world "  ask turtles with [ body-A-id = old-who ] [ set id who set body-A-id new-who ] \n")
+ set code-to-setup-my-world (word code-to-setup-my-world "  ask turtles with [ body-B-id = old-who ] [ set id who set body-B-id new-who ] \n")
  set code-to-setup-my-world (word code-to-setup-my-world "] \n")
 
  set code-to-setup-my-world (word code-to-setup-my-world "physics-eval \"create world\" (list " gravity " (list " world-height " " world-width ") ) \n")
  set code-to-setup-my-world (word code-to-setup-my-world "ask turtles with [ type-of-turtle = \"body\" ] [\n")
- set code-to-setup-my-world (word code-to-setup-my-world "  physics-eval \"add body\" ( list id body-behavior body-A-id coords )\n")
+ set code-to-setup-my-world (word code-to-setup-my-world "  physics-eval \"add body\" ( list id body-behavior body-A-id coords heading )\n")
  set code-to-setup-my-world (word code-to-setup-my-world "]  \n")
  set code-to-setup-my-world (word code-to-setup-my-world "ask turtles with [ type-of-turtle = \"fixture\" ] [ \n")
- set code-to-setup-my-world (word code-to-setup-my-world "   physics-eval \"add fixture to body\" (list id body-A-id coords fixture-coords fixture-shape fixture-settings) \n")
+ set code-to-setup-my-world (word code-to-setup-my-world "   physics-eval \"add fixture to body\" (list id body-A-id coords fixture-coords fixture-shape fixture-settings heading) \n")
  set code-to-setup-my-world (word code-to-setup-my-world "]  \n")
  set code-to-setup-my-world (word code-to-setup-my-world "ask turtles with [ type-of-turtle = \"target\" ] [  \n")
  set code-to-setup-my-world (word code-to-setup-my-world "  physics-eval \"add target to body\" (list id body-A-id coords ) \n")
@@ -164,6 +171,7 @@ to setup-debug-draw
     setxy item 0 coords item 1 coords
     set label id
     set selected? false
+    set heading 0
   ]
   ask turtles with [ type-of-turtle = "fixture" ] [
     set first-coord-id -1
@@ -172,6 +180,7 @@ to setup-debug-draw
     set shape "circle 2"
     ;;set color random 14 * 10 + 2
     set color length fixture-coords * 20 + 44
+    if (fixture-shape = "circle") [ set color 20 + 44 ]
     set default-color color
     set size 1
     setxy item 0 coords item 1 coords
@@ -188,17 +197,17 @@ to setup-debug-draw
           set type-of-turtle "fixture-coords"
           setxy item 0 coord item 1 coord
           set shape "circle"
-          set label ""
+          ifelse (first-coord-id = -1 and fixture-shape = "circle")
+          [ set label "x  " set label-color black ]
+          [ set label "" ]
           set size 0.75
           ifelse (first-coord-id = -1) [
             set first-coord-id who
           ]
-          [
-            create-link-with turtle prev-coord-id
-          ]
+          [ create-link-with turtle prev-coord-id ]
           set prev-coord-id who
         ] ] )
-    ask turtle prev-coord-id [ create-link-with turtle first-coord-id ]
+     ask turtle prev-coord-id [ create-link-with turtle first-coord-id ]
   ]
   ask turtles with [ type-of-turtle = "target" ] [
     show-turtle
@@ -259,79 +268,61 @@ to my-world
 clear-all
 create-turtles 1 [
   set type-of-turtle "body"
-  set coords [1.23 4.99]
+  set coords [-4.41 2.35]
+  set body-behavior "dynamic"
+  set body-A-id 6
+  set id 6
+]
+create-turtles 1 [
+  set type-of-turtle "body"
+  set coords [-4.19 -6.16]
   set body-behavior "static"
   set body-A-id 0
   set id 0
 ]
 create-turtles 1 [
   set type-of-turtle "body"
-  set coords [2.57 -1.05]
-  set body-behavior "static"
-  set body-A-id 1
+  set coords [-2.75 -1.59]
+  set body-behavior "dynamic"
+  set body-A-id 59
+  set id 59
+]
+create-turtles 1 [
+  set type-of-turtle "fixture"
+  set coords [-3.74 1.05]
+  set fixture-coords [[-2.89 2.62] [-4.74 1.05] [-3.74 0.05] [-0.65 -0.16]]
+  set fixture-settings [0.8 0.5 0.8]
+  set fixture-shape "quadrilateral"
+  set body-A-id 6
+  set id 9
+]
+create-turtles 1 [
+  set type-of-turtle "fixture"
+  set coords [-4.86 -8.35]
+  set fixture-coords [[9.2 -8.57] [-9.2 -8.53]]
+  set fixture-settings [0.8 0.5 0.8]
+  set fixture-shape "edge"
+  set body-A-id 0
   set id 1
 ]
 create-turtles 1 [
   set type-of-turtle "fixture"
-  set coords [4.19 1.54]
-  set fixture-coords [[4.19 2.54] [3.32 1.04] [5.05 1.04]]
-  set fixture-settings [0 0.3 1]
+  set coords [-1.28 5.93]
+  set fixture-coords [[0.34 2.9] [-2.8 2.66] [-0.6 -0.07]]
+  set fixture-settings [0.8 0.5 0.8]
   set fixture-shape "triangle"
-  set body-A-id 1
-  set id 2
+  set body-A-id 6
+  set id 20
 ]
 create-turtles 1 [
-  set type-of-turtle "target"
-  set coords [3.87 -1.59]
-  set body-A-id 1
-  set id 17
+  set type-of-turtle "fixture"
+  set coords [3.65 -1.63]
+  set fixture-coords [[-1.19 -5.04] [0.16 -3.43]]
+  set fixture-settings [0.8 0.5 0.8]
+  set fixture-shape "circle"
+  set body-A-id 59
+  set id 69
 ]
-create-turtles 1 [
-  set type-of-turtle "joint"
-  set coords [-1.05 2.8]
-  set joint-coords [[-2.05 2.8] [-0.05 2.8]]
-  set body-A-id 0
-  set body-B-id 1
-  set id 9
-]
-   ask turtles [
-     if not (type-of-turtle) [ set type-of-turtle "" ]
-     if not (selected?) [ set selected? "" ]
-     if not (default-color) [ set default-color "" ]
-     if not (body-behavior) [ set body-behavior "" ]
-     if not (body-A-id ) [ set body-A-id  "" ]
-     if not (body-B-id) [ set body-B-id "" ]
-     if not (coords) [ set coords "" ]
-     if not (fixture-id) [ set fixture-id "" ]
-     if not (fixture-settings) [ set fixture-settings "" ]
-     if not (fixture-shape) [ set fixture-shape "" ]
-     if not (joint-index) [ set joint-index "" ]
-    ; if not (joint-coords) [ set joint-coords "" ]
-     if not (joint-id) [ set joint-id "" ]
-     if not (old-body-id) [ set old-body-id "" ]
-    ; if not (first-coord-id) [ set first-coord-id "" ]
-   ; if not (prev-coord-id) [ set prev-coord-id "" ]
-  ]
-ask turtles with [ type-of-turtle = "body"] [
-  let old-who body-A-id
-  let new-who id
-  ask turtles with [ body-A-id = old-who ] [ set body-A-id new-who ]
-  ask turtles with [ body-B-id = old-who ] [ set body-B-id new-who ]
-]
-;physics-eval "create world" (list 10)
-ask turtles with [ type-of-turtle = "body" ] [
- ; physics-eval "add body" ( list id coords )
-]
-ask turtles with [ type-of-turtle = "fixture" ] [
- ;  physics-eval "add fixture to body" (list id body-A-id fixture-coords fixture-shape fixture-settings)
-]
-ask turtles with [ type-of-turtle = "target" ] [
-;  physics-eval "add target to body" (list id body-A-id coords )
-]
-ask turtles with [ type-of-turtle = "joint" ] [
-;  physics-eval "add joint to body" (list id body-A-id body-B-id joint-coords )
-]
-setup-debug-draw ;; OPTIONAL
 
 end
 
@@ -544,6 +535,7 @@ to add-body
         setxy mouse-xcor mouse-ycor
         set coords (list precision xcor 2 precision ycor 2)
         set body-A-id who
+        set heading 0
       ]
       setup-debug-draw
       stop
@@ -571,11 +563,11 @@ to add-fixture
           if (fixture-shape = "triangle") [ set num-coords 3 ]
           if (fixture-shape = "quadrilateral") [ set num-coords 4 ]
           if (fixture-shape = "pentagon") [ set num-coords 5 ]
-          let angle 360 / num-coords
+          let fixture-angle 360 / num-coords
           while [ num-coords > 0 ] [
             hatch 1 [
               set type-of-turtle "temp-fixture-coords"
-              set heading angle * num-coords
+              set heading fixture-angle * num-coords
               fd 1
               set temp-fixture-coords lput (list precision xcor 2 precision ycor 2 ) temp-fixture-coords
             ]
@@ -663,7 +655,7 @@ to update-fixture
   if (shape-of-fixture = "triangle") [ set num-coords 3 ]
   if (shape-of-fixture = "quadrilateral") [ set num-coords 4 ]
   if (shape-of-fixture = "pentagon") [ set num-coords 5 ]
-  let angle 360 / num-coords
+  ;;let angle 360 / num-coords
   ask turtles with [ type-of-turtle = "fixture" and selected? ] [
     set fixture-settings (list density friction restitution)
   ]
@@ -798,12 +790,12 @@ CHOOSER
 shape-of-fixture
 shape-of-fixture
 "edge" "circle" "triangle" "quadrilateral" "pentagon"
-2
+1
 
 BUTTON
-658
+657
 292
-761
+760
 325
 add-fixture
 add-fixture
@@ -826,7 +818,7 @@ density
 density
 0
 1
-0.0
+0.8
 0.1
 1
 NIL
@@ -841,7 +833,7 @@ friction
 friction
 0
 1
-1.0
+0.4
 0.1
 1
 NIL
@@ -856,7 +848,7 @@ restitution
 restitution
 0
 1
-1.0
+0.3
 0.1
 1
 NIL
@@ -870,7 +862,7 @@ CHOOSER
 behavior
 behavior
 "static" "ghost" "dynamic"
-0
+2
 
 BUTTON
 652
@@ -1180,7 +1172,7 @@ INPUTBOX
 1471
 543
 code-to-setup-my-world
-clear-all \ncreate-turtles 1 [ \n  set type-of-turtle \"body\" \n  set coords [3.69 3.96] \n  set body-behavior \"static\" \n  set body-A-id 10 \n]  \n   ask turtles [\n     if not (type-of-turtle) [ set type-of-turtle \"\" ]\n     if not (selected?) [ set selected? \"\" ]\n     if not (default-color) [ set default-color \"\" ]\n     if not (body-behavior) [ set body-behavior \"\" ]\n     if not (body-A-id ) [ set body-A-id  \"\" ]\n     if not (body-B-id) [ set body-B-id \"\" ]\n     if not (coords) [ set coords \"\" ]\n     if not (fixture-id) [ set fixture-id \"\" ]\n     if not (fixture-settings) [ set fixture-settings \"\" ]\n     if not (fixture-shape) [ set fixture-shape \"\" ]\n     if not (joint-index) [ set joint-index \"\" ]\n     if not (joint-coords) [ set joint-coords \"\" ]\n     if not (joint-id) [ set joint-id \"\" ]\n     if not (old-body-id) [ set old-body-id \"\" ]\n     if not (first-coord-id) [ set first-coord-id \"\" ]\n    if not (prev-coord-id) [ set prev-coord-id \"\" ]\n  ]\nask turtles with [ type-of-turtle = \"body\"] [\n  let old-who body-A-id\n  let new-who who \n  ask turtles with [ body-A-id = old-who ] [ set body-A-id new-who ] \n  ask turtles with [ body-B-id = old-who ] [ set body-B-id new-who ] \n] \nphysics-eval \"create world\" (list 10 (list 21 21) ) \nask turtles with [ type-of-turtle = \"body\" ] [\n  physics-eval \"add body\" ( list id body-behavior body-A-id coords )\n]  \nask turtles with [ type-of-turtle = \"fixture\" ] [ \n   physics-eval \"add fixture to body\" (list id body-A-id coords fixture-coords fixture-shape fixture-settings) \n]  \nask turtles with [ type-of-turtle = \"target\" ] [  \n  physics-eval \"add target to body\" (list id body-A-id coords ) \n]  \nask turtles with [ type-of-turtle = \"joint\" ] [  \n  physics-eval \"add joint to body\" (list id body-A-id body-B-id joint-coords ) \n]  \nphysics-eval \"setup debug draw\" (list) ;; OPTIONAL  \nsetup-debug-draw ;; OPTIONAL  \n
+clear-all \ncreate-turtles 1 [ \n  set type-of-turtle \"body\" \n  set coords [-1.54 1.9] \n  set body-behavior \"dynamic\" \n  set body-A-id 0 \n  set heading 0 \n]  \ncreate-turtles 1 [ \n  set type-of-turtle \"fixture\" \n  set coords [0.51 1.46] \n  set fixture-coords [[2.4 -1.14] [-1.5 -1.19]] \n  set fixture-settings [0.8 0.4 0.3] \n  set fixture-shape \"circle\" \n  set body-A-id 0 \n]  \ncreate-turtles 1 [ \n  set type-of-turtle \"fixture\" \n  set coords [-1.72 1.72] \n  set fixture-coords [[-1.81 2.84] [-2.59 1.22] [-0.87 1.1]] \n  set fixture-settings [0.8 0.4 0.3] \n  set fixture-shape \"triangle\" \n  set body-A-id 0 \n]  \n   ask turtles [\n     if not (type-of-turtle) [ set type-of-turtle \"\" ]\n     if not (selected?) [ set selected? \"\" ]\n     if not (default-color) [ set default-color \"\" ]\n     if not (body-behavior) [ set body-behavior \"\" ]\n     if not (body-A-id ) [ set body-A-id  \"\" ]\n     if not (body-B-id) [ set body-B-id \"\" ]\n     if not (coords) [ set coords \"\" ]\n     if not (fixture-id) [ set fixture-id \"\" ]\n     if not (fixture-settings) [ set fixture-settings \"\" ]\n     if not (fixture-shape) [ set fixture-shape \"\" ]\n     if not (joint-index) [ set joint-index \"\" ]\n     if not (joint-coords) [ set joint-coords \"\" ]\n     if not (joint-id) [ set joint-id \"\" ]\n     if not (old-body-id) [ set old-body-id \"\" ]\n     if not (first-coord-id) [ set first-coord-id \"\" ]\n     if not (prev-coord-id) [ set prev-coord-id \"\" ]\n     if not (angle) [ set angle \"\" ]\n  ]\nask turtles with [ type-of-turtle = \"body\"] [\n  set id who\n  let old-who body-A-id\n  let new-who who \n  ask turtles with [ body-A-id = old-who ] [ set id who set body-A-id new-who ] \n  ask turtles with [ body-B-id = old-who ] [ set id who set body-B-id new-who ] \n] \nphysics-eval \"create world\" (list 10 (list 21 21) ) \nask turtles with [ type-of-turtle = \"body\" ] [\n  physics-eval \"add body\" ( list id body-behavior body-A-id coords heading )\n]  \nask turtles with [ type-of-turtle = \"fixture\" ] [ \n   physics-eval \"add fixture to body\" (list id body-A-id coords fixture-coords fixture-shape fixture-settings heading) \n]  \nask turtles with [ type-of-turtle = \"target\" ] [  \n  physics-eval \"add target to body\" (list id body-A-id coords ) \n]  \nask turtles with [ type-of-turtle = \"joint\" ] [  \n  physics-eval \"add joint to body\" (list id body-A-id body-B-id joint-coords ) \n]  \nphysics-eval \"setup debug draw\" (list) ;; OPTIONAL  \nsetup-debug-draw ;; OPTIONAL  \n
 1
 1
 String

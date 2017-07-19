@@ -1665,7 +1665,6 @@ img.link-img {
     <script type="text/javascript" src="js/jquery.min.js"></script>
   	<script type="text/javascript" src="js/client.js"></script>
   	<script type="text/javascript" src="js/interface.js"></script>
-    
   	<script src="/socket.io/socket.io.js"></script>
     
     <script> // GbCC Settings for interface
@@ -1699,10 +1698,7 @@ img.link-img {
         $("#shareClientView").click(function() {
           ($(this).prop("checked")) ? socket.emit('display view', {'display':true}) : socket.emit('display view', {'display':false});
         });
-        
-        
         $(".netlogo-canvas").attr("id","box2d-canvas");
-        
       });
     </script>
     
@@ -47167,12 +47163,12 @@ c=e.buttons;A=0;if(e.enabled!==!1){for(b in c)a.addButton(c[b]);u(a,"destroy",a.
       this._gbccSetGlobals = bind(this._gbccSetGlobals, this);
       this._gbccBroadcast = bind(this._gbccBroadcast, this);
       this._gbccGetGlobals = bind(this._gbccGetGlobals, this);
+      
       // reporters
       this._evalCmd = bind(this._evalCmd, this);
       this._gbccGetFromUser = bind(this._gbccGetFromUser, this);
       this._gbccGet = bind(this._gbccGet, this);
       this._physicsEval = bind(this._physicsEval, this);
-      
       this._getHubnetMessageWaiting = bind(this._getHubnetMessageWaiting, this);
       this._setHubnetMessageWaiting = bind(this._setHubnetMessageWaiting, this);
       this._getHubnetEnterMessage = bind(this._getHubnetEnterMessage, this);
@@ -47238,6 +47234,23 @@ c=e.buttons;A=0;if(e.enabled!==!1){for(b in c)a.addButton(c[b]);u(a,"destroy",a.
       });
     };
     
+    HubnetManager.prototype.physicsEval = function(messageTag, message) {
+      // console.log(messageTag+" "+message);
+      if (messageTag === "start world") { Physics.startWorld(); };
+      if (messageTag === "stop world") { Physics.stopWorld(); };
+      if (messageTag === "setup world") { Physics.setupWorld(); };
+      if (messageTag === "create world") { Physics.createWorld(message); };
+      if (messageTag === "update world") { Physics.update(); };
+      
+      if (messageTag === "update once") { Physics.updateOnce(); };
+      if (messageTag === "add body") { Physics.addBody(message); };
+      if (messageTag === "add fixture to body") { Physics.addFixtureToBody(message); };
+      if (messageTag === "add target to body") { Physics.addTargetToBody(message); };    
+      if (messageTag === "add joint to body") { Physics.addJointToBody(message); };
+      if (messageTag === "setup debug draw") { Physics.setupDebugDraw(); };
+      if (messageTag === "remove debug draw") { Physics.removeDebugDraw(); };
+    };
+    
     HubnetManager.prototype.gbccRunCode = function(x) {
       //console.log(x.replace(/[\n\r]/g, ' '))
       if ($(".netlogo-tab-content.netlogo-command-center").length === 0) {
@@ -47267,8 +47280,6 @@ c=e.buttons;A=0;if(e.enabled!==!1){for(b in c)a.addButton(c[b]);u(a,"destroy",a.
     // HubnetManager.prototype.gbccWaitThen = function(seconds, proc) {
     //  console.log("TO DO: wait " + seconds + " seconds " + proc);
     // };
-    
-
 
     HubnetManager.prototype.gbccSetGlobals = function() {
       console.log("gbccSetGlobals");
@@ -47377,21 +47388,6 @@ c=e.buttons;A=0;if(e.enabled!==!1){for(b in c)a.addButton(c[b]);u(a,"destroy",a.
         hubnetMessage: message
       });
       myData[messageTag] = message;
-    };
-    
-    HubnetManager.prototype.physicsEval = function(messageTag, message) {
-      // console.log(messageTag+" "+message);
-      if (messageTag === "start world") { Physics.startWorld(); };
-      if (messageTag === "stop world") { Physics.stopWorld(); };
-      if (messageTag === "setup world") { Physics.setupWorld(); };
-      if (messageTag === "create world") { Physics.createWorld(message); };
-      if (messageTag === "update world") { Physics.update(); };
-      if (messageTag === "add body") { Physics.addBody(message); };
-      if (messageTag === "add fixture to body") { Physics.addFixtureToBody(message); };
-      if (messageTag === "add target to body") { Physics.addTargetToBody(message); };    
-      if (messageTag === "add joint to body") { Physics.addJointToBody(message); };
-      if (messageTag === "setup debug draw") { Physics.setupDebugDraw(); };
-      if (messageTag === "remove debug draw") { Physics.removeDebugDraw(); };
     };
 
     HubnetManager.prototype.gbccGetFromUser = function(messageSource, messageTag) {
@@ -52750,7 +52746,7 @@ into the sorting code and caused a 25% performance hit in BZ Benchmark. --JAB (4
 
   keywords = ['BREED', 'TO', 'TO-REPORT', 'END', 'GLOBALS', 'TURTLES-OWN', 'LINKS-OWN', 'PATCHES-OWN', 'DIRECTED-LINK-BREED', 'UNDIRECTED-LINK-BREED', 'EXTENSIONS', '__INCLUDES'];
 
-  commands = ['__bench', '__change-topology', '__done', '__experimentstepend', '__export-drawing', '__foreverbuttonend', '__ignore', '__let', '__linkcode', '__make-preview', '__mkdir', '__observercode', '__patchcode', '__plot-pen-hide', '__plot-pen-show', '__pwd', '__reload-extensions', '__set-line-thickness', '__stderr', '__stdout', '__thunk-did-finish', '__turtlecode', 'ask', 'ask-concurrent', 'auto-plot-off', 'auto-plot-on', 'back', 'beep', 'bk', 'ca', 'carefully', 'cd', 'clear-all', 'clear-all-plots', 'clear-drawing', 'clear-globals', 'clear-links', 'clear-output', 'clear-patches', 'clear-plot', 'clear-ticks', 'clear-turtles', 'cp', 'create-link-from', 'create-link-to', 'create-link-with', 'create-links-from', 'create-links-to', 'create-links-with', 'create-ordered-turtles', 'create-temporary-plot-pen', 'create-turtles', 'cro', 'crt', 'ct', 'die', 'diffuse', 'diffuse4', 'display', 'downhill', 'downhill4', 'error', 'every', 'export-all-plots', 'export-interface', 'export-output', 'export-plot', 'export-view', 'export-world', 'face', 'facexy', 'fd', 'file-close', 'file-close-all', 'file-delete', 'file-flush', 'file-open', 'file-print', 'file-show', 'file-type', 'file-write', 'follow', 'follow-me', 'foreach', 'forward', 'gbcc-broadcast', 'gbcc-wait', 'gbcc-get-globals-from-user', 'gbcc-set', 'physics-eval', 'gbcc-set-globals', 'hatch', 'hide-link', 'hide-turtle', 'histogram', 'home', 'ht', 'hubnet-fetch-message', 'hubnet-send', 'if', 'if-else', 'ifelse', 'import-drawing', 'import-pcolors', 'import-pcolors-rgb', 'import-world', 'inspect', 'jump', 'layout-circle', 'layout-radial', 'layout-spring', 'layout-tutte', 'left', 'let', 'loop', 'lt', 'move-to', 'no-display', 'output-print', 'output-show', 'output-type', 'output-write', 'pd', 'pe', 'pen-down', 'pen-erase', 'pen-up', 'pendown', 'penup', 'plot', 'plot-pen-down', 'plot-pen-reset', 'plot-pen-up', 'plotxy', 'print', 'pu', 'random-seed', 'repeat', 'report', 'reset-perspective', 'reset-ticks', 'reset-timer', 'resize-world', 'ride', 'ride-me', 'right', 'rp', 'rt', 'run', 'set', 'set-current-directory', 'eval-cmd', 'set-current-plot', 'set-current-plot-pen', 'set-default-shape', 'set-histogram-num-bars', 'set-patch-size', 'set-plot-pen-color', 'set-plot-pen-interval', 'set-plot-pen-mode', 'set-plot-x-range', 'set-plot-y-range', 'setup-plots', 'setxy', 'show', 'show-link', 'show-turtle', 'sprout', 'st', 'stamp', 'stamp-erase', 'stop', 'tick', 'tick-advance', 'tie', 'type', 'untie', 'update-plots', 'uphill', 'uphill4', 'user-message', 'wait', 'watch', 'watch-me', 'while', 'with-local-randomness', 'without-interruption', 'write'].reverse();
+  commands = ['__bench', '__change-topology', '__done', '__experimentstepend', '__export-drawing', '__foreverbuttonend', '__ignore', '__let', '__linkcode', '__make-preview', '__mkdir', '__observercode', '__patchcode', '__plot-pen-hide', '__plot-pen-show', '__pwd', '__reload-extensions', '__set-line-thickness', '__stderr', '__stdout', '__thunk-did-finish', '__turtlecode', 'ask', 'ask-concurrent', 'auto-plot-off', 'auto-plot-on', 'back', 'beep', 'bk', 'ca', 'carefully', 'cd', 'clear-all', 'clear-all-plots', 'clear-drawing', 'clear-globals', 'clear-links', 'clear-output', 'clear-patches', 'physics-eval', 'clear-plot', 'clear-ticks', 'clear-turtles', 'cp', 'create-link-from', 'create-link-to', 'create-link-with', 'create-links-from', 'create-links-to', 'create-links-with', 'create-ordered-turtles', 'create-temporary-plot-pen', 'create-turtles', 'cro', 'crt', 'ct', 'die', 'diffuse', 'diffuse4', 'display', 'downhill', 'downhill4', 'error', 'every', 'export-all-plots', 'export-interface', 'export-output', 'export-plot', 'export-view', 'export-world', 'face', 'facexy', 'fd', 'file-close', 'file-close-all', 'file-delete', 'file-flush', 'file-open', 'file-print', 'file-show', 'file-type', 'file-write', 'follow', 'follow-me', 'foreach', 'forward', 'gbcc-broadcast', 'gbcc-wait', 'gbcc-get-globals-from-user', 'gbcc-set', 'gbcc-set-globals', 'hatch', 'hide-link', 'hide-turtle', 'histogram', 'home', 'ht', 'hubnet-fetch-message', 'hubnet-send', 'if', 'if-else', 'ifelse', 'import-drawing', 'import-pcolors', 'import-pcolors-rgb', 'import-world', 'inspect', 'jump', 'layout-circle', 'layout-radial', 'layout-spring', 'layout-tutte', 'left', 'let', 'loop', 'lt', 'move-to', 'no-display', 'output-print', 'output-show', 'output-type', 'output-write', 'pd', 'pe', 'pen-down', 'pen-erase', 'pen-up', 'pendown', 'penup', 'plot', 'plot-pen-down', 'plot-pen-reset', 'plot-pen-up', 'plotxy', 'print', 'pu', 'random-seed', 'repeat', 'report', 'reset-perspective', 'reset-ticks', 'reset-timer', 'resize-world', 'ride', 'ride-me', 'right', 'rp', 'rt', 'run', 'set', 'set-current-directory', 'eval-cmd', 'set-current-plot', 'set-current-plot-pen', 'set-default-shape', 'set-histogram-num-bars', 'set-patch-size', 'set-plot-pen-color', 'set-plot-pen-interval', 'set-plot-pen-mode', 'set-plot-x-range', 'set-plot-y-range', 'setup-plots', 'setxy', 'show', 'show-link', 'show-turtle', 'sprout', 'st', 'stamp', 'stamp-erase', 'stop', 'tick', 'tick-advance', 'tie', 'type', 'untie', 'update-plots', 'uphill', 'uphill4', 'user-message', 'wait', 'watch', 'watch-me', 'while', 'with-local-randomness', 'without-interruption', 'write'].reverse();
 
   reporters = ['!=', '\\*', '\\+', '-', '/', '<', '<=', '=', '>', '>=', '\\^', '__boom', '__check-syntax', '__dump', '__dump-extension-prims', '__dump-extensions', '__dump1', '__hubnet-in-q-size', '__hubnet-out-q-size', '__nano-time', '__patchcol', '__patchrow', '__processors', '__random-state', '__stack-trace', '__to-string', 'abs', 'acos', 'all\\?', 'and', 'any\\?', 'approximate-hsb', 'approximate-rgb', 'asin', 'at-points', 'atan', 'autoplot\\?', 'base-color', 'behaviorspace-run-number', 'bf', 'bl', 'both-ends', 'but-first', 'but-last', 'butfirst', 'butlast', 'can-move\\?', 'ceiling', 'cos', 'count', 'date-and-time', 'distance', 'distance-nowrap', 'distancexy', 'distancexy-nowrap', 'dx', 'dy', 'empty\\?', 'end1', 'end2', 'error-message', 'exp', 'extract-hsb', 'extract-rgb', 'file-at-end\\?', 'file-exists\\?', 'file-read', 'file-read-characters', 'file-read-line', 'filter', 'first', 'floor', 'fput', 'gbcc-get-from-user', 'gbcc-get', 'gbcc-run-code', 'gbcc-canvas-click?',  
   'hsb', 'hubnet-clients-list', 'hubnet-enter-message\\?', 'hubnet-exit-message\\?', 'hubnet-message', 'hubnet-message-list', 'hubnet-message-source', 'hubnet-message-tag', 'hubnet-message-waiting\\?', 'ifelse-value', 'in-cone', 'in-cone-nowrap', 'in-link-from', 'in-link-neighbor\\?', 'in-link-neighbors', 'in-radius', 'in-radius-nowrap', 'int', 'is-agent\\?', 'is-agentset\\?', 'is-boolean\\?', 'is-command-task\\?', 'is-directed-link\\?', 'is-link-set\\?', 'is-link\\?', 'is-list\\?', 'is-number\\?', 'is-patch-set\\?', 'is-patch\\?', 'is-reporter-task\\?', 'is-string\\?', 'is-turtle-set\\?', 'is-turtle\\?', 'is-undirected-link\\?', 'item', 'last', 'length', 'link', 'link-heading', 'link-length', 'link-neighbor\\?', 'link-neighbors', 'link-set', 'link-shapes', 'link-with', 'links', 'list', 'ln', 'log', 'lput', 'map', 'max', 'max-n-of', 'max-one-of', 'max-pxcor', 'max-pycor', 'mean', 'median', 'member\\?', 'min', 'min-n-of', 'min-one-of', 'min-pxcor', 'min-pycor', 'mod', 'modes', 'mouse-down\\?', 'mouse-inside\\?', 'mouse-xcor', 'mouse-ycor', 'movie-status', 'my-in-links', 'my-links', 'my-out-links', 'myself', 'n-of', 'n-values', 'neighbors', 'neighbors4', 'netlogo-applet\\?', 'netlogo-version', 'netlogo-web\\?', 'new-seed', 'no-links', 'no-patches', 'no-turtles', 'not', 'of', 'one-of', 'or', 'other', 'other-end', 'out-link-neighbor\\?', 'out-link-neighbors', 'out-link-to', 'patch', 'patch-ahead', 'patch-at', 'patch-at-heading-and-distance', 'patch-here', 'patch-left-and-ahead', 'patch-right-and-ahead', 'patch-set', 'patch-size', 'patches', 'plot-name', 'plot-pen-exists\\?', 'plot-x-max', 'plot-x-min', 'plot-y-max', 'plot-y-min', 'position', 'precision', 'random', 'random-exponential', 'random-float', 'random-gamma', 'random-normal', 'random-or-random-float', 'random-poisson', 'random-pxcor', 'random-pycor', 'random-xcor', 'random-ycor', 'read-from-string', 'reduce', 'remainder', 'remove', 'remove-duplicates', 'remove-item', 'replace-item', 'reverse', 'rgb', 'round', 'run-result', 'runresult', 'scale-color', 'se', 'self', 'sentence', 'shade-of\\?', 'shapes', 'shuffle', 'sin', 'sort', 'sort-by', 'sort-on', 'sqrt', 'standard-deviation', 'subject', 'sublist', 'substring', 'subtract-headings', 'sum', 'tan', 'task', 'ticks', 'timer', 'towards', 'towards-nowrap', 'towardsxy', 'towardsxy-nowrap', 'turtle', 'turtle-set', 'turtles', 'turtles-at', 'turtles-here', 'turtles-on', 'user-directory', 'user-file', 'user-input', 'user-new-file', 'user-one-of', 'user-yes-or-no\\?', 'value-from', 'values-from', 'variance', 'with', 'with-max', 'with-min', 'word', 'world-height', 'world-width', 'wrap-color', 'xor', 'WHO', 'COLOR', 'HEADING', 'XCOR', 'YCOR', 'SHAPE', 'LABEL', 'LABEL-COLOR', 'BREED', 'HIDDEN\\?', 'SIZE', 'PEN-SIZE', 'PEN-MODE', 'PXCOR', 'PYCOR', 'PCOLOR', 'PLABEL', 'PLABEL-COLOR', 'END1', 'END2', 'COLOR', 'LABEL', 'LABEL-COLOR', 'HIDDEN\\?', 'BREED', 'THICKNESS', 'SHAPE', 'TIE-MODE', 'USERID', 'INFECTED', 'BASESHAPE'].reverse();
@@ -58294,13 +58290,12 @@ into the sorting code and caused a 25% performance hit in BZ Benchmark. --JAB (4
         this.centerX = this.worldCenterX;
         this.centerY = this.worldCenterY;
         
-        //Physics.update();
         // REMMLER
         //$("body").append("<img id='caterpillar' src='temp.png'>");
         //var img = img=document.getElementById("caterpillar");
         // this.visibleCtx.drawImage(img,10,10);
         // END REMMLER
-
+        
         return this.visibleCtx.drawImage(this.canvas, 0, 0);
       }
     };
@@ -60212,13 +60207,16 @@ _nS('controllers.Local'); _root['controllers']['Local']['standalone'] =
 })(jsRoutes)
 
 
-document.title = 'physics-10.nlogo';
-</script>
 
+
+
+
+document.title = 'physicsworld2.nlogo';
+
+</script>
 <script type="text/javascript" src="js/Box2D.js"></script>
 <script type="text/javascript" src="js/physics.js"></script>
-<script type='text/nlogo' id='nlogo-code' data-filename='physics-10.nlogo'>
-  globals [ 
+<script type='text/nlogo' id='nlogo-code' data-filename='physicsworld2.nlogo'>  globals [ 
     first-coord-id
     prev-coord-id
     world-time 
@@ -60244,6 +60242,8 @@ document.title = 'physics-10.nlogo';
     joint-index ;; joint-coords index
     joint-coords ;; helpers for joints
     joint-id
+    
+    angle
 
     
     old-body-id ;; body
@@ -60252,14 +60252,23 @@ document.title = 'physics-10.nlogo';
   
 to start-world
   physics-eval "start world" (list)
+  remove-debug-draw
+  set running? true
 end
 
 to stop-world
   physics-eval "stop world" (list)
+  set running? false
 end
 
 to run-code
+  stop-world
   gbcc-run-code code-to-setup-world
+  remove-debug-draw
+end
+
+to update-once
+  physics-eval "update once" (list)
 end
 
 to setup-debug-draw
@@ -60269,7 +60278,7 @@ to setup-debug-draw
   ask turtles with [ type-of-turtle = "body" ] [
     show-turtle
     setxy item 0 coords item 1 coords
-    ifelse (body-behavior = "dynamic") [ set shape "star" ] [ ifelse (body-behavior = "static") [ set shape "square" ] [ set shape "ghost" ] ]
+;;    ifelse (body-behavior = "dynamic") [ set shape "star" ] [ ifelse (body-behavior = "static") [ set shape "square" ] [ set shape "ghost" ] ]
     set color violet
     set size 1
     setxy item 0 coords item 1 coords
@@ -60277,6 +60286,7 @@ to setup-debug-draw
     set selected? false
   ]
   ask turtles with [ type-of-turtle = "fixture" ] [
+    show-turtle
     set first-coord-id -1
     set prev-coord-id -1
     show-turtle
@@ -60368,8 +60378,8 @@ to setup-debug-draw
 end
 
 to remove-debug-draw
-  ask turtles with [ type-of-turtle = "body" ] [ hide-turtle ]
-  ask turtles with [ type-of-turtle = "fixture" ] [ set label ""]
+  ;; ask turtles with [ type-of-turtle = "body" ] [ hide-turtle ]
+  ask turtles with [ type-of-turtle = "fixture" ] [ hide-turtle set label ""]
   ask turtles with [ type-of-turtle = "fixture-coords" ] [ die ]
   ask turtles with [ type-of-turtle = "target" ] [ hide-turtle ]
   ask turtles with [ type-of-turtle = "joint" ] [ hide-turtle ]
@@ -60393,8 +60403,8 @@ GRAPHICS-WINDOW
 1
 1
 0
-1
-1
+0
+0
 1
 -10
 10
@@ -60440,16 +60450,16 @@ NIL
 NIL
 1
 
-MONITOR
-27
-53
-129
-98
-NIL
-world-time
-17
+SWITCH
+21
+58
+133
+91
+running?
+running?
 1
-11
+1
+-1000
 
 INPUTBOX
 665
@@ -60480,64 +60490,12 @@ NIL
 1
 
 BUTTON
-20
-408
-143
-441
-setup-debug-draw
-setup-debug-draw
-NIL
-1
-T
-OBSERVER
-NIL
-NIL
-NIL
-NIL
-1
-
-BUTTON
-20
-451
-143
-484
-remove-debug-draw
-remove-debug-draw
-NIL
-1
-T
-OBSERVER
-NIL
-NIL
-NIL
-NIL
-1
-
-
-BUTTON
-20
-408
-143
-441
-NIL
-show-debug-draw
-NIL
-1
-T
-OBSERVER
-NIL
-NIL
-NIL
-NIL
-1
-
-BUTTON
-20
-451
-143
-484
-NIL
-hide-debug-draw
+786
+471
+897
+504
+update-once
+update-once
 NIL
 1
 T

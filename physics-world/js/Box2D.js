@@ -19,11 +19,11 @@ var Box2D = {};
 
 (function (a2j, undefined) {
 
-   if(!(Object.prototype.defineProperty instanceof Function)
+   if(!(Object.prototype.defineProperty2 instanceof Function)
       && Object.prototype.__defineGetter__ instanceof Function
       && Object.prototype.__defineSetter__ instanceof Function)
    {
-      Object.defineProperty = function(obj, p, cfg) {
+      Object.defineProperty2 = function(obj, p, cfg) {
          if(cfg.get instanceof Function)
             obj.__defineGetter__(p, cfg.get);
          if(cfg.set instanceof Function)
@@ -1286,14 +1286,14 @@ Box2D.postDefs = [];
       id.key = this.key;
       return id;
    }
-   Object.defineProperty(b2ContactID.prototype, 'key', {
+   Object.defineProperty2(b2ContactID.prototype, 'key', {
       enumerable: false,
       configurable: true,
       get: function () {
          return this._key;
       }
    });
-   Object.defineProperty(b2ContactID.prototype, 'key', {
+   Object.defineProperty2(b2ContactID.prototype, 'key', {
       enumerable: false,
       configurable: true,
       set: function (value) {
@@ -2643,14 +2643,14 @@ Box2D.postDefs = [];
       this.id.Set(other.id);
    }
    Features.Features = function () {};
-   Object.defineProperty(Features.prototype, 'referenceEdge', {
+   Object.defineProperty2(Features.prototype, 'referenceEdge', {
       enumerable: false,
       configurable: true,
       get: function () {
          return this._referenceEdge;
       }
    });
-   Object.defineProperty(Features.prototype, 'referenceEdge', {
+   Object.defineProperty2(Features.prototype, 'referenceEdge', {
       enumerable: false,
       configurable: true,
       set: function (value) {
@@ -2659,14 +2659,14 @@ Box2D.postDefs = [];
          this._m_id._key = (this._m_id._key & 0xffffff00) | (this._referenceEdge & 0x000000ff);
       }
    });
-   Object.defineProperty(Features.prototype, 'incidentEdge', {
+   Object.defineProperty2(Features.prototype, 'incidentEdge', {
       enumerable: false,
       configurable: true,
       get: function () {
          return this._incidentEdge;
       }
    });
-   Object.defineProperty(Features.prototype, 'incidentEdge', {
+   Object.defineProperty2(Features.prototype, 'incidentEdge', {
       enumerable: false,
       configurable: true,
       set: function (value) {
@@ -2675,14 +2675,14 @@ Box2D.postDefs = [];
          this._m_id._key = (this._m_id._key & 0xffff00ff) | ((this._incidentEdge << 8) & 0x0000ff00);
       }
    });
-   Object.defineProperty(Features.prototype, 'incidentVertex', {
+   Object.defineProperty2(Features.prototype, 'incidentVertex', {
       enumerable: false,
       configurable: true,
       get: function () {
          return this._incidentVertex;
       }
    });
-   Object.defineProperty(Features.prototype, 'incidentVertex', {
+   Object.defineProperty2(Features.prototype, 'incidentVertex', {
       enumerable: false,
       configurable: true,
       set: function (value) {
@@ -2691,14 +2691,14 @@ Box2D.postDefs = [];
          this._m_id._key = (this._m_id._key & 0xff00ffff) | ((this._incidentVertex << 16) & 0x00ff0000);
       }
    });
-   Object.defineProperty(Features.prototype, 'flip', {
+   Object.defineProperty2(Features.prototype, 'flip', {
       enumerable: false,
       configurable: true,
       get: function () {
          return this._flip;
       }
    });
-   Object.defineProperty(Features.prototype, 'flip', {
+   Object.defineProperty2(Features.prototype, 'flip', {
       enumerable: false,
       configurable: true,
       set: function (value) {
@@ -3642,7 +3642,7 @@ Box2D.postDefs = [];
       this._g = Box2D.parseUInt(255 * b2Math.Clamp(gg, 0.0, 1.0));
       this._b = Box2D.parseUInt(255 * b2Math.Clamp(bb, 0.0, 1.0));
    }
-   Object.defineProperty(b2Color.prototype, 'r', {
+   Object.defineProperty2(b2Color.prototype, 'r', {
       enumerable: false,
       configurable: true,
       set: function (rr) {
@@ -3650,7 +3650,7 @@ Box2D.postDefs = [];
          this._r = Box2D.parseUInt(255 * b2Math.Clamp(rr, 0.0, 1.0));
       }
    });
-   Object.defineProperty(b2Color.prototype, 'g', {
+   Object.defineProperty2(b2Color.prototype, 'g', {
       enumerable: false,
       configurable: true,
       set: function (gg) {
@@ -3658,7 +3658,7 @@ Box2D.postDefs = [];
          this._g = Box2D.parseUInt(255 * b2Math.Clamp(gg, 0.0, 1.0));
       }
    });
-   Object.defineProperty(b2Color.prototype, 'b', {
+   Object.defineProperty2(b2Color.prototype, 'b', {
       enumerable: false,
       configurable: true,
       set: function (bb) {
@@ -3666,7 +3666,7 @@ Box2D.postDefs = [];
          this._b = Box2D.parseUInt(255 * b2Math.Clamp(bb, 0.0, 1.0));
       }
    });
-   Object.defineProperty(b2Color.prototype, 'color', {
+   Object.defineProperty2(b2Color.prototype, 'color', {
       enumerable: false,
       configurable: true,
       get: function () {
