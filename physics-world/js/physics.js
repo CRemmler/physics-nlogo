@@ -28,6 +28,8 @@ Physics = (function() {
      ,	b2DebugDraw = Box2D.Dynamics.b2DebugDraw
      ,  b2AABB = Box2D.Collision.b2AABB
      ,  b2MouseJointDef = Box2D.Dynamics.Joints.b2MouseJointDef
+     ,  b2DistanceJointDef = Box2D.Dynamics.Joints.b2DistanceJointDef
+     ,  b2RevoluteJointDef = Box2D.Dynamics.Joints.b2RevoluteJointDef
      ;
   var bodyObj = {};
   var turtleObj = {};
@@ -79,40 +81,50 @@ Physics = (function() {
     bodyObj = {};
     turtleObj = {};
     bindElements();
-    var gravity = m[0];
-    var range = m[1];
+    var gravityX = m[0];
+    var gravityY = m[1];
+    var range = m[2];
+    console.log("create world "+gravityY+" "+gravityY+" "+range);
     NLOGO_WIDTH = range[0];
     NLOGO_HEIGHT = range[1];
-
+    if (!p) {
+      p = $( "#box2d-canvas");
+      canvasPosition = p.position();
+    }
     world = new b2World(
-          new b2Vec2(0, gravity)    //gravity
+          new b2Vec2(gravityX, gravityY)    //gravity
        ,  true                 //allow sleep
     );
-    console.log(universe.model.turtles);
     for (var turtleId in universe.model.turtles) {
       turtleObj[turtleId] = universe.model.turtles[turtleId].who;
     }
+    setupDebugDraw();
+  }
+
+  var lastUpdate = 0;
+  
+  function runWorld() {
+    var currentTime = new Date().getTime();
+    if (currentTime - lastUpdate > 300) {
+      // run world was called for the first time, after a break
+      startWorld();
+    }
+    lastUpdate = currentTime;
   }
 
   function startWorld() {
+    console.log("start world");
     if (world) {
-      for (var id in bodyObj) {
-        //coords = bodyObj[id].GetPosition();
-        //console.log("before",coords);
-        //newCoords = box2dtonlogo(coords);
-        //console.log("id "+id+" "+newCoords.x+" "+newCoords.y)      
-      }
-      
-      
-      
-      p = $( "#box2d-canvas");
-      canvasPosition = p.position();
+      window.clearInterval(physicsWorld);      
+      //p = $( "#box2d-canvas");
+      //canvasPosition = p.position();
       physicsWorld = window.setInterval(update, 1000 / 60);
       running = true;
     }
   }
         
   function stopWorld() {
+    console.log("stop world");
     window.clearInterval(physicsWorld);
     running = false;
   }
@@ -138,10 +150,7 @@ Physics = (function() {
         bodyDef.type = b2Body.b2_kineticBody;            
         break;
     }
-    console.log("angle"+angle);
-    console.log(degreestoradians(angle));
     bodyDef.angle = degreestoradians(angle);
-    console.log(bodyDef.angle);
     bodyDef.position.x = roundToTenths(box2dCoords[0]);
     bodyDef.position.y = roundToTenths(box2dCoords[1]);
     bodyDef.userData = {
@@ -154,6 +163,14 @@ Physics = (function() {
   function roundToTenths(x) {
     return Math.round(x * 100) / 100;
   }
+  //function drag(m) {
+  //  var id = m[0];
+  //  var callback = m[1];
+//universe.model.turtles[0].xcor
+  //}
+  
+  
+  
   function addFixtureToBody(m) {
     var id = m[0];
     var bodyA = m[1];
@@ -175,7 +192,7 @@ Physics = (function() {
     var offsetY = bodyObj[bodyA].GetPosition().y;
     if (shape === "circle") {
       var distance = (findDistance(box2dFixtureCoords[0], box2dFixtureCoords[1]));
-      fixDef.shape = new b2CircleShape(distance / 2);
+      fixDef.shape = new b2CircleShape(distance);
       fixDef.shape.SetLocalPosition(
         new b2Vec2(roundToTenths(box2dFixtureCoords[0][0] - offsetX), roundToTenths(box2dFixtureCoords[0][1] - offsetY)),
         new b2Vec2(roundToTenths(box2dFixtureCoords[1][0] - offsetX), roundToTenths(box2dFixtureCoords[1][1] - offsetY)));
@@ -200,23 +217,58 @@ Physics = (function() {
     var coords = m[2];
     console.log("addTargetToBody "+id+" "+bodyA+" "+coords);
   }
-  function addJointToBody(m) {
+  function addDistanceJointToBody(m) {
     var id = m[0];
     var bodyA = m[1];
     var bodyB = m[2];
     var coords = m[3];
-    console.log("addJointToBody "+id+" "+bodyA+" "+bodyB+" "+coords);
+    console.log("addRevoluteJointToBody "+id+" "+bodyA+" "+bodyB+" "+coords);
+    var coordsA = nlogotobox2d(coords[0]);
+    var coordsB = nlogotobox2d(coords[1]);
+    var bodyAOffsetX = bodyObj[bodyA].GetPosition().x;
+    var bodyAOffsetY = bodyObj[bodyA].GetPosition().y;
+    var bodyBOffsetX = bodyObj[bodyB].GetPosition().x;
+    var bodyBOffsetY = bodyObj[bodyB].GetPosition().y;
+    console.log("addDistanceJointToBody "+id+" "+bodyA+" "+bodyB+" "+coords);
+    var joint = new b2DistanceJointDef();
+    joint.Initialize(bodyObj[bodyA], bodyObj[bodyB], 
+      new b2Vec2(roundToTenths(coordsA[0]), roundToTenths(coordsA[1])), 
+      new b2Vec2(roundToTenths(coordsB[0]), roundToTenths(coordsB[1])));   
+    joint.collideConnected = true;
+    console.log(joint);
+    world.CreateJoint(joint);
+  }
+  function addRevoluteJointToBody(m) {
+    var id = m[0];
+    var bodyA = m[1];
+    var bodyB = m[2];
+    var coords = m[3];
+  //  allowCollisionsBetweenBodies(bodyA, bodyB);
+    console.log("addRevoluteJointToBody "+id+" "+bodyA+" "+bodyB+" "+coords);
+    var coordsA = nlogotobox2d(coords[0]);
+    var bodyAOffsetX = bodyObj[bodyA].GetPosition().x;
+    var bodyAOffsetY = bodyObj[bodyA].GetPosition().y; 
+    var joint = new b2RevoluteJointDef();
+    joint.Initialize(bodyObj[bodyA], bodyObj[bodyB], 
+      new b2Vec2(roundToTenths(coordsA[0]), roundToTenths(coordsA[1]))); 
+    console.log(joint);
+    world.CreateJoint(joint);
+  }
+  function addPrismaticJointToBody(m) {
+    
   }
   function setupDebugDraw() {
-    console.log("setup debug draw box2d");
-    //setup debug draw
-    var debugDraw = new b2DebugDraw();
-     debugDraw.SetSprite(document.getElementById("box2d-canvas").getContext("2d"));
-     debugDraw.SetDrawScale(30.0);
-     debugDraw.SetFillAlpha(0.3);
-     debugDraw.SetLineThickness(1.0);
-     debugDraw.SetFlags(b2DebugDraw.e_shapeBit | b2DebugDraw.e_jointBit);
-     world.SetDebugDraw(debugDraw);
+    if (world) {
+      console.log("setup debug draw box2d");
+      //setup debug draw
+      var debugDraw = new b2DebugDraw();
+       debugDraw.SetSprite(document.getElementById("box2d-canvas").getContext("2d"));
+       debugDraw.SetDrawScale(30.0);
+       debugDraw.SetFillAlpha(0.3);
+       debugDraw.SetLineThickness(1.0);
+       debugDraw.SetFlags(b2DebugDraw.e_shapeBit | b2DebugDraw.e_jointBit);
+       world.SetDebugDraw(debugDraw);
+     }
   }
 
   function findDistance(coord1, coord2) {
@@ -226,9 +278,60 @@ Physics = (function() {
     return Math.sqrt(Math.pow(changeInX,2) + Math.pow(changeInY,2));
   }
 
+  function allowCollisionsBetweenBodies(bodyA, bodyB) {/*
+    var newGroupIndex;
+    var bodyAGroupIndex = bodyObj[bodyA].groupIndex;
+    var bodyBGroupIndex = bodyObj[bodyB].groupIndex;
+    if (!bodyAGroupIndex && !bodyBGroupIndex) {
+      newGroupIndex = bodyObj[bodyA].id+"-"+bodyObj[bodyB].id;
+      bodyObj[bodyA].groupIndex = newGroupIndex;
+      bodyObj[bodyB].groupIndex = newGroupIndex;
+      return;
+    }
+    if (bodyAGroupIndex) {
+      newGroupIndex = bodyAGroupIndex;
+      oldGroupIndex = bodyBGroupIndex;
+      bodyObj[bodyB].groupIndex = newGroupIndex;
+    } else if (bodyBGroupIndex) {
+      newGroupIndex = bodyBGroupIndex;
+      oldGroupIndex = bodyAGroupIndex;
+      bodyObj[bodyA].groupIndex = newGroupIndex;
+    }
+    for (var id in bodyObj) {
+      if (bodyObj[id].groupIndex === oldGroupIndex) {
+        bodyObj[id].groupIndex = newGroupIndex;
+      }
+    }*/
+  }
+  
+  
+  
+  function drag(m) {
+    console.log("drag");
+    var draggerId = m[0];
+    var callback = m[1];
+    //dragging = window.setInterval(dragIt, 1000 / 60);
+    //while (isMouseDown) {
+    //  console.log("mousedown drag " + draggerId)
+    //}
+    console.log("finished dragging, ",callback);
+  }
+  
+  function dragIt() {
+    console.log("mousedown drag " + draggerId)
+  }
+
+  function redrawWorld() {
+    if (world) {
+      console.log("update once from redraw world");
+      universe.repaint();
+      world.DrawDebugData();
+    }
+  }
+
   function updateOnce() {
     if (world) {
-      console.log("update once");
+      console.log("update once from updateOnce");
       universe.repaint();
       world.Step(
              1 / 60   //frame-rate
@@ -242,7 +345,6 @@ Physics = (function() {
         b = bodyObj[id];
         if (b.GetType() == b2Body.b2_dynamicBody) {
           var pos = box2dtonlogo(b.GetPosition());
-          console.log(pos);
           var heading = radianstodegrees(b.GetAngle());
           universe.model.turtles[id].xcor = pos.x;
           universe.model.turtles[id].ycor = pos.y;
@@ -264,6 +366,12 @@ Physics = (function() {
   
 
   function update() {
+    var currentTime = new Date().getTime();
+    if (currentTime - lastUpdate > 300 ) { 
+      stopWorld(); 
+      return; 
+    }
+    
     if (running) {
       console.log("update");
       universe.repaint();
@@ -283,12 +391,7 @@ Physics = (function() {
           universe.model.turtles[id].xcor = pos.x;
           universe.model.turtles[id].ycor = pos.y;
           universe.model.turtles[id].heading = radianstodegrees(b.GetAngle());
-          // OR just keep stamping body of turtle at that position (but which turtle shape)
-          // on update, just keep stamping turtle 
-          // on updateOnce, actually move turtle 
-          // id is supposed to tie them together, id on body of turtle, and id in bodyObj
         } else if (b.GetType() == b2Body.b2_staticBody) {
-          //console.log(box2dtonlogo(b.GetPosition()));
           var pos = box2dtonlogo(b.GetPosition());
           universe.model.turtles[id].xcor = pos.x;
           universe.model.turtles[id].ycor = pos.y;
@@ -375,12 +478,14 @@ Physics = (function() {
    
    function bindElements() {
      $('#box2d-canvas').bind('mouseout', function(event) {
+
        $('#box2d-canvas').unbind('mousemove', handleMouseMove);
        isMouseDown = false;
        mouseX = undefined;
        mouseY = undefined;
      });
      $('#box2d-canvas').bind('mousedown', function(event) {
+
        isMouseDown = true;
        $('#box2d-canvas').bind('mousemove', handleMouseMove);
      });
@@ -414,20 +519,25 @@ Physics = (function() {
   return {
     startWorld: startWorld,
     stopWorld: stopWorld,
+    runWorld: runWorld,
     world: world,
     running: getRunning,
     update: update,
     addBody: addBody,
     addFixtureToBody: addFixtureToBody,
     addTargetToBody: addTargetToBody,
-    addJointToBody: addJointToBody,
+    addDistanceJointToBody: addDistanceJointToBody,
+    addRevoluteJointToBody: addRevoluteJointToBody,
+    addPrismaticJointToBody: addPrismaticJointToBody,
     createWorld: createWorld,
     setupDebugDraw: setupDebugDraw,
     getWorld: getWorld,
     getBodyObj: getBodyObj,
     updateOnce: updateOnce,
     nlogotobox2d: nlogotobox2d,
-    box2dtonlogo: box2dtonlogo
+    box2dtonlogo: box2dtonlogo,
+    redrawWorld: redrawWorld,
+    drag: drag
     
   };
 

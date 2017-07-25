@@ -47235,20 +47235,21 @@ c=e.buttons;A=0;if(e.enabled!==!1){for(b in c)a.addButton(c[b]);u(a,"destroy",a.
     };
     
     HubnetManager.prototype.physicsEval = function(messageTag, message) {
-      // console.log(messageTag+" "+message);
-      if (messageTag === "start world") { Physics.startWorld(); };
-      if (messageTag === "stop world") { Physics.stopWorld(); };
+      //console.log(messageTag+" "+message);
+      if (messageTag === "update world") { Physics.runWorld(); }
       if (messageTag === "setup world") { Physics.setupWorld(); };
       if (messageTag === "create world") { Physics.createWorld(message); };
-      if (messageTag === "update world") { Physics.update(); };
-      
-      if (messageTag === "update once") { Physics.updateOnce(); };
+      //if (messageTag === "update world") { Physics.update(); };
+      if (messageTag === "update world once") { Physics.updateOnce(); };
       if (messageTag === "add body") { Physics.addBody(message); };
       if (messageTag === "add fixture to body") { Physics.addFixtureToBody(message); };
       if (messageTag === "add target to body") { Physics.addTargetToBody(message); };    
-      if (messageTag === "add joint to body") { Physics.addJointToBody(message); };
-      if (messageTag === "setup debug draw") { Physics.setupDebugDraw(); };
+      if (messageTag === "add distance joint to body") { Physics.addDistanceJointToBody(message); };
+      if (messageTag === "add revolute joint to body") { Physics.addRevoluteJointToBody(message); };
+      if (messageTag === "add prismatic joint to body") { Physics.addPrismaticJointToBody(message); };      
+      if (messageTag === "redraw world") { Physics.redrawWorld(); };
       if (messageTag === "remove debug draw") { Physics.removeDebugDraw(); };
+      if (messageTag === "drag") { Physics.drag(message);}
     };
     
     HubnetManager.prototype.gbccRunCode = function(x) {
@@ -60216,87 +60217,551 @@ document.title = 'physicsworld2.nlogo';
 </script>
 <script type="text/javascript" src="js/Box2D.js"></script>
 <script type="text/javascript" src="js/physics.js"></script>
-<script type='text/nlogo' id='nlogo-code' data-filename='physicsworld2.nlogo'>  globals [ 
-    first-coord-id
-    prev-coord-id
-    world-time 
-  ]
-
-  turtles-own [
-    type-of-turtle ;; body, fixture, joint or target
-
-    selected? ;; target, body
-    default-color ;; target, body, fixture, to return to after being selected
-
-    body-behavior
-    body-A-id ;; fixture, joint, target
-    body-B-id ;; joint
-    coords ;; body, fixture, target
-
-    fixture-index ;; fixture-coords index
-    fixture-coords ;; helpers for fixture
-    fixture-id
-    fixture-settings
-    fixture-shape
-
-    joint-index ;; joint-coords index
-    joint-coords ;; helpers for joints
-    joint-id
-    
-    angle
-
-    
-    old-body-id ;; body
-    id
-  ]
+<script type='text/nlogo' id='nlogo-code' data-filename='physicsworld2.nlogo'>  
   
-to start-world
-  physics-eval "start world" (list)
+globals [
+  show-skeleton?
+  mouse-state
+  dragger-id
+  dragger-type
+  body-A
+  body-B
+  joint
+  fixture
+  fixture-ind
+  joint-ind
+]  
+  
+turtles-own [
+  type-of-turtle ;; body, fixture, joint or target
+
+  selected? ;; target, body
+  default-color ;; target, body, fixture, to return to after being selected
+
+  body-behavior
+  body-A-id ;; fixture, joint, target
+  body-B-id ;; joint
+  coords ;; body, fixture, target
+
+  fixture-index ;; fixture-coords index
+  fixture-coords ;; helpers for fixture
+  fixture-id
+  fixture-settings
+  fixture-shape
+  fixture-circle-coords ;; helpers for fixtures that are circles
+
+  joint-index ;; joint-coords index
+  joint-coords ;; helpers for joints
+  joint-id
+
+  old-body-id ;; body
+
+  angle
+
+  id ;; fixutre, joint, target
+
+]
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;
+;; NETLOGO PROCEDURES
+;; --- special procedure
+;; startup
+;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; SPECIAL PROCEDURE called automatically when loading model
+to startup
+  set show-skeleton? true
+  set mouse-state "up" 
+  set dragger-id -1
+  set dragger-type ""
+  set body-A -1
+  set body-B -1
+  set joint -1
+  set fixture -1
+  set fixture-ind -1
+  set joint-ind -1
+end
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;
+;; BOX2D PROCEDURES   ;;
+;; --- dictionary --- ;;
+;; box2d:create-world
+;; box2d:update-world
+;; box2d:create-shape
+;; box2d:update-shape
+;; box2d:destroy-shape
+;; box2d:create-target
+;; box2d:destroy-target
+;; box2d:apply-linear-impulse
+;; box2d:apply-torque
+;; box2d:apply-angular-impulse
+;; box2d:glue-shapes
+;; box2d:create-revolute-joint
+;; box2d:create-distance-joint
+;; box2d:create-prismatic-joint
+;; box2d:remove-joint
+;;;;;;;;;;;;;;;;;;;;;;;
+
+;;;;;;;;;;;;;;;;;;;;;;;;;
+;; CONTROL BOX2D WORLD ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;
+
+to setup
+  physics-eval "create world" (list gravity-x gravity-y (list world-height world-width))
+  ask turtles with [ type-of-turtle = "body" ] [
+    physics-eval "add body" ( list id body-behavior body-A-id coords heading )
+  ]
+  ask turtles with [ type-of-turtle = "fixture" ] [
+    physics-eval "add fixture to body" (list id body-A-id coords fixture-coords fixture-shape fixture-settings heading)
+  ]
+  show-skeleton
+  ask turtles with [ type-of-turtle = "target" ] [
+    physics-eval "add target to body" (list id body-A-id coords )
+  ]
+  ask turtles with [ type-of-turtle = "distance-joint" ] [
+    physics-eval "add distance joint to body" (list id body-A-id body-B-id joint-coords )
+  ]
+  ask turtles with [ type-of-turtle = "revolute-joint" ] [
+    physics-eval "add revolute joint to body" (list id body-A-id body-B-id joint-coords )
+  ]
+  ask turtles with [ type-of-turtle = "prismatic-joint" ] [
+    physics-eval "add prismatic joint to body" (list id body-A-id body-B-id joint-coords )
+  ]
+  ;  set code-for-box2d-world (word code-for-box2d-world "] 
+
+  show-skeleton
+end
+
+to go
+  every 0.25 [
+    if (show-skeleton?) [ hide-skeleton ]
+    physics-eval "update world" (list) 
+  ]
+end
+
+to go-once
+  ;if (show-skeleton?) [ hide-skeleton ]
+  physics-eval "update world once" (list)   
+end
+
+to load-demo
+  ;; print code for that demo to code-for-box2d-world box
+  clear-all
+  set code-for-box2d-world ""
+end
+
+to push-forward
+
+end
+
+to push-around
+
+end
+
+to setup-box2d-world
+  gbcc-run-code code-for-box2d-world
+end
+
+;;;;;;;;;;;;;;;;;;;;;;;;;
+;; DISPLAY BOX2D-WORLD ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;
+
+to show-skeleton
+  set show-skeleton? true
+  setup-debug-draw
+end
+
+to hide-skeleton
+  set show-skeleton? false
   remove-debug-draw
-  set running? true
 end
 
-to stop-world
-  physics-eval "stop world" (list)
-  set running? false
+;;;;;;;;;;;;;;;;;;;;;;;;
+;; CREATE BOX2D WORLD ;;
+;;;;;;;;;;;;;;;;;;;;;;;;
+
+to add-shape
+  every 0.1 [
+    if (mouse-down?) [ 
+      set body-A -1
+      create-turtles 1 [
+        set type-of-turtle "body"
+        set id who
+        set body-A who
+        set body-behavior behavior
+        setxy mouse-xcor mouse-ycor
+        set coords (list precision xcor 2 precision ycor 2)
+        set body-A-id who
+        set heading 0
+      ]
+      
+      create-turtles 1 [
+        set type-of-turtle "fixture"
+        set id who
+        set coords (list precision mouse-xcor 2 precision mouse-ycor 2)
+        set fixture-settings (list density friction restitution)
+        set fixture-shape shape-of-fixture
+        set body-A-id body-A
+        set fixture-id who
+        let num-coords 2
+        let temp-fixture-coords (list)
+        setxy mouse-xcor mouse-ycor
+        if (fixture-shape = "triangle") [ set num-coords 3 ]
+        if (fixture-shape = "quadrilateral") [ set num-coords 4 ]
+        if (fixture-shape = "pentagon") [ set num-coords 5 ]
+        let fixture-angle 360 / num-coords
+        while [ num-coords > 0 ] [
+          hatch 1 [
+            set type-of-turtle "temp-fixture-coords"
+            set heading fixture-angle * num-coords
+            fd 1
+            set temp-fixture-coords lput (list precision xcor 2 precision ycor 2 ) temp-fixture-coords
+          ]
+          set num-coords num-coords - 1
+        ]
+        ask turtles with [type-of-turtle = "temp-fixture-coords"] [ die ]
+        set fixture-coords temp-fixture-coords
+      ]
+      ;;setup-debug-draw
+      setup
+      stop 
+    ]
+  ]
 end
 
-to run-code
-  stop-world
-  gbcc-run-code code-to-setup-world
-  remove-debug-draw
+to add-target2
+
 end
 
-to update-once
-  physics-eval "update once" (list)
+;;;;;;;;;;;;;;;;;;;;;;
+;; EDIT BOX2D WORLD ;;
+;;;;;;;;;;;;;;;;;;;;;;
+
+to select
+  every 0.1 [
+    if (mouse-down?) [
+      ask patch mouse-xcor mouse-ycor [
+        if count turtles-here with [ type-of-turtle = "body" ] > 0 [
+          ask one-of turtles-here with [type-of-turtle = "body"] [
+            ifelse (selected? = true) [
+              set selected? false
+              set color violet
+            ] [
+              set selected? true
+              set color yellow
+              set behavior body-behavior
+            ]
+          ]
+        ]
+        if count turtles-here with [ type-of-turtle = "target" ] > 0 [
+          ask one-of turtles-here with [type-of-turtle = "target"] [
+            ifelse (selected? = true) [
+              set selected? false
+              set color red
+            ] [
+              set selected? true
+              set color yellow
+            ]
+          ]
+        ]
+      ]
+    ]
+  ]
 end
+
+
+
+to drag
+  let turtle-type-list [ "body" "fixture" "fixture-coords" "target" "revolute-joint" "prismatic-joint" "distance-joint" "joint-coords"]
+
+  every 0.1 [
+    ifelse (mouse-down? and mouse-state = "up") [
+      show "mouse-down"
+      set mouse-state "drag"
+      ask patch mouse-xcor mouse-ycor [
+        if count turtles-here with [ member? type-of-turtle turtle-type-list ] > 0 [
+          ask one-of turtles-here [ 
+            set dragger-type type-of-turtle 
+            set dragger-id who 
+            if (type-of-turtle = "fixture-coords") [
+              set body-A body-A-id
+              set fixture fixture-id
+              set fixture-ind fixture-index
+            ]
+            if (type-of-turtle = "joint-coords") [
+              set body-A body-A-id
+              set body-B body-B-id
+              set joint joint-id
+              set joint-ind joint-index
+            ]
+          ]
+        ]
+        show dragger-id
+      ]
+    ][
+      ifelse (not mouse-down? and mouse-state = "drag" ) [
+        show "mouse-up"
+        set mouse-state "up"
+        if (dragger-type = "fixture-coords") [
+          ask turtle fixture [
+            set fixture-coords replace-item fixture-ind fixture-coords (list precision mouse-xcor 2 precision mouse-ycor 2)
+          ]
+        ]
+        if (dragger-type = "joint-coords") [        
+          ask turtle joint [
+            set joint-coords replace-item joint-ind joint-coords (list mouse-xcor mouse-ycor)
+          ]
+        ]
+        if (member? dragger-type ["body" "fixture" "revolute-joint" "prismatic-joint" "distance-joint" "target"]) [
+          ask turtle dragger-id [ set coords (list precision xcor 2 precision ycor 2)]
+        ]
+        set dragger-id -1
+        set dragger-type ""
+        set body-A -1
+        set body-B -1
+        set joint -1
+        set fixture -1
+        set fixture-ind -1
+        set joint-ind -1
+      ] [
+        if (mouse-down? and mouse-state = "drag") [
+          show "mouse-drag"
+          show dragger-id
+          if (member? dragger-type turtle-type-list) [
+            ask turtle dragger-id [ setxy mouse-xcor mouse-ycor ]          
+          ]
+        ]
+      ]
+    ]
+  ]
+end
+
+to save
+  save-setup
+end
+
+to delete2
+
+end
+
+to update-shape
+
+end
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; CONNECT BOX2D SHAPES ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+to glue-together
+
+end
+
+to add-revolute-joint2
+
+end
+
+to add-distance-joint2
+
+end
+
+to add-prismatic-joint
+
+end
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; GBCC GALLERY PROCEDURES ;;
+;; --- special procedures -;;
+;; on-gallery-button
+;; on-gallery-forever-button
+;; off-gallery-forever-button
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; SPECIAL PROCEDURE
+;; called automatically when pressing gallery icon as a button
+to on-gallery-button [ user-id ]
+  ;; set code-for-box2d-world gbcc:get "code example"
+end
+
+;; SPECIAL PROCEDURE
+;; called automatically when selecting gallery icon as a forever button
+to on-gallery-forever-button [ user-id ]
+  ;; add user-id to selected-gallery-list
+end
+
+;; SPECIAL PROCEDURE
+;; called automatically when de-selecting gallery icon as a forever button
+to off-gallery-forever-button [ user-id ]
+  ;; remove user-id from selected-gallery-list
+end
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; GBCC MULTI-USER PROCEDURES ;;
+;; --- dictionary ------------;;
+;; gbcc:emit-message <user-id> <key> <value>
+;; gbcc:broadcast-message <key> <value>
+;; --- special procedures ----;;
+;; on-user-enter [user-id]
+;; on-user-exit [user-id]
+;; on-user-message [user-id key value]
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; SPECIAL PROCEDURE called automatically when another user enters room
+to on-user-enter [ user-id ]
+
+end
+
+;; SPECIAL PROCEDURE called automatically when another user exits room
+to on-user-exit [ user-id ]
+
+end
+
+;; SPECIAL PROCEDURE called automatically when another user sends message
+to on-user-message [ user-id key value ]
+  ;; if user-id in selected-gallery-list
+  ;; do something with message
+end
+
+to share-code
+  ;;gbcc:broadcast-message "code example" code-for-box2d-world
+end
+
+
+
+
+
+
+
+
+
+
+
+to save-setup
+ set code-for-box2d-world ""
+ let old-body-A-id -1
+ let old-body-B-id -1
+ set body-A -1
+ set body-B -1
+ let body-list (list)
+
+ ask turtles with [type-of-turtle = "body"] [
+   set code-for-box2d-world (word code-for-box2d-world "create-turtles 1 [ \n")
+   set code-for-box2d-world (word code-for-box2d-world "  set type-of-turtle \"body\" \n")
+   set code-for-box2d-world (word code-for-box2d-world "  set coords " coords " \n")
+   set code-for-box2d-world (word code-for-box2d-world "  set body-behavior \"" body-behavior "\" \n")
+   set code-for-box2d-world (word code-for-box2d-world "  set body-A-id " who " \n")
+;   set code-for-box2d-world (word code-for-box2d-world "  set id " who " \n")
+   set code-for-box2d-world (word code-for-box2d-world "  set heading " heading " \n")
+   set code-for-box2d-world (word code-for-box2d-world "]  \n")
+   set body-list lput who body-list
+ ]
+
+  ask turtles with [type-of-turtle = "fixture"] [
+   set code-for-box2d-world (word code-for-box2d-world "create-turtles 1 [ \n")
+   set code-for-box2d-world (word code-for-box2d-world "  set type-of-turtle \"fixture\" \n")
+   set code-for-box2d-world (word code-for-box2d-world "  set coords " coords " \n")
+   set code-for-box2d-world (word code-for-box2d-world "  set fixture-coords " fixture-coords " \n")
+   set code-for-box2d-world (word code-for-box2d-world "  set fixture-settings " fixture-settings " \n")
+   set code-for-box2d-world (word code-for-box2d-world "  set fixture-shape \"" fixture-shape "\" \n")
+   set code-for-box2d-world (word code-for-box2d-world "  set body-A-id " body-A-id " \n")
+;   set code-for-box2d-world (word code-for-box2d-world "  set id " who " \n")
+   set code-for-box2d-world (word code-for-box2d-world "]  \n")
+ ]
+
+ ask turtles with [ type-of-turtle = "target" ] [
+   set code-for-box2d-world (word code-for-box2d-world "create-turtles 1 [ \n")
+   set code-for-box2d-world (word code-for-box2d-world "  set type-of-turtle \"target\" \n")
+   set code-for-box2d-world (word code-for-box2d-world "  set coords " coords " \n")
+   set code-for-box2d-world (word code-for-box2d-world "  set body-A-id " body-A-id " \n")
+ ;  set code-for-box2d-world (word code-for-box2d-world "  set id " who " \n")
+   set code-for-box2d-world (word code-for-box2d-world "]  \n")
+ ]
+
+  ask turtles with [ type-of-turtle = "revolute-joint" ] [
+   set code-for-box2d-world (word code-for-box2d-world "create-turtles 1 [ \n")
+   set code-for-box2d-world (word code-for-box2d-world "  set type-of-turtle \"revolute-joint\" \n")
+   set code-for-box2d-world (word code-for-box2d-world "  set coords " coords " \n")
+   set code-for-box2d-world (word code-for-box2d-world "  set joint-coords " joint-coords " \n")
+   set code-for-box2d-world (word code-for-box2d-world "  set body-A-id " body-A-id " \n")
+   set code-for-box2d-world (word code-for-box2d-world "  set body-B-id " body-B-id " \n")
+ ;  set code-for-box2d-world (word code-for-box2d-world "  set id " who " \n")
+   set code-for-box2d-world (word code-for-box2d-world "]  \n")
+ ]
+
+  ask turtles with [ type-of-turtle = "distance-joint" ] [
+   set code-for-box2d-world (word code-for-box2d-world "create-turtles 1 [ \n")
+   set code-for-box2d-world (word code-for-box2d-world "  set type-of-turtle \"distance-joint\" \n")
+   set code-for-box2d-world (word code-for-box2d-world "  set coords " coords " \n")
+   set code-for-box2d-world (word code-for-box2d-world "  set joint-coords " joint-coords " \n")
+   set code-for-box2d-world (word code-for-box2d-world "  set body-A-id " body-A-id " \n")
+   set code-for-box2d-world (word code-for-box2d-world "  set body-B-id " body-B-id " \n")
+ ;  set code-for-box2d-world (word code-for-box2d-world "  set id " who " \n")
+   set code-for-box2d-world (word code-for-box2d-world "]  \n")
+ ]
+
+ set code-for-box2d-world (word code-for-box2d-world "   ask turtles [\n")
+ set code-for-box2d-world (word code-for-box2d-world "     if not (type-of-turtle) [ set type-of-turtle \"\" ]\n")
+ set code-for-box2d-world (word code-for-box2d-world "     if not (selected?) [ set selected? \"\" ]\n")
+ set code-for-box2d-world (word code-for-box2d-world "     if not (default-color) [ set default-color \"\" ]\n")
+ set code-for-box2d-world (word code-for-box2d-world "     if not (body-behavior) [ set body-behavior \"\" ]\n")
+ set code-for-box2d-world (word code-for-box2d-world "     if not (body-A-id ) [ set body-A-id  \"\" ]\n")
+ set code-for-box2d-world (word code-for-box2d-world "     if not (body-B-id) [ set body-B-id \"\" ]\n")
+ set code-for-box2d-world (word code-for-box2d-world "     if not (coords) [ set coords \"\" ]\n")
+ set code-for-box2d-world (word code-for-box2d-world "     if not (fixture-id) [ set fixture-id \"\" ]\n")
+ set code-for-box2d-world (word code-for-box2d-world "     if not (fixture-settings) [ set fixture-settings \"\" ]\n")
+ set code-for-box2d-world (word code-for-box2d-world "     if not (fixture-shape) [ set fixture-shape \"\" ]\n")
+ set code-for-box2d-world (word code-for-box2d-world "     if not (joint-index) [ set joint-index \"\" ]\n")
+ set code-for-box2d-world (word code-for-box2d-world "     if not (joint-coords) [ set joint-coords \"\" ]\n")
+ set code-for-box2d-world (word code-for-box2d-world "     if not (joint-id) [ set joint-id \"\" ]\n")
+ set code-for-box2d-world (word code-for-box2d-world "     if not (old-body-id) [ set old-body-id \"\" ]\n")
+ set code-for-box2d-world (word code-for-box2d-world "     if not (first-coord-id) [ set first-coord-id \"\" ]\n")
+ set code-for-box2d-world (word code-for-box2d-world "     if not (prev-coord-id) [ set prev-coord-id \"\" ]\n")
+ set code-for-box2d-world (word code-for-box2d-world "     if not (angle) [ set angle \"\" ]\n")
+ set code-for-box2d-world (word code-for-box2d-world "  ]\n")
+
+ set code-for-box2d-world (word code-for-box2d-world "ask turtles with [ type-of-turtle = \"body\"] [\n")
+ set code-for-box2d-world (word code-for-box2d-world "  set id who\n")
+ set code-for-box2d-world (word code-for-box2d-world "  let old-who body-A-id\n")
+ set code-for-box2d-world (word code-for-box2d-world "  let new-who who \n")
+ set code-for-box2d-world (word code-for-box2d-world "  ask turtles with [ body-A-id = old-who ] [ set id who set body-A-id new-who ] \n")
+ set code-for-box2d-world (word code-for-box2d-world "  ask turtles with [ body-B-id = old-who ] [ set id who set body-B-id new-who ] \n")
+ set code-for-box2d-world (word code-for-box2d-world "] \n")
+ end
+
+;;;;;;;;;;;;;;;;;
+;; DEMO WORLDS ;;
+;;;;;;;;;;;;;;;;;
 
 to setup-debug-draw
   remove-debug-draw
-  show "setup-debug-draw"
   let index 0
+  let first-coord-id -1
+  let prev-coord-id -1
   ask turtles with [ type-of-turtle = "body" ] [
     show-turtle
     setxy item 0 coords item 1 coords
-;;    ifelse (body-behavior = "dynamic") [ set shape "star" ] [ ifelse (body-behavior = "static") [ set shape "square" ] [ set shape "ghost" ] ]
+    ifelse (body-behavior = "dynamic") [ set shape "star" ] [ ifelse (body-behavior = "static") [ set shape "square" ] [ set shape "ghost" ] ]
     set color violet
     set size 1
     setxy item 0 coords item 1 coords
     set label id
     set selected? false
+    set heading 0
   ]
   ask turtles with [ type-of-turtle = "fixture" ] [
-    show-turtle
     set first-coord-id -1
     set prev-coord-id -1
     show-turtle
     set shape "circle 2"
+    ;;set color random 14 * 10 + 2
     set color length fixture-coords * 20 + 44
+    if (fixture-shape = "circle") [ set color 20 + 44 ]
     set default-color color
     set size 1
     setxy item 0 coords item 1 coords
     set label body-A-id
-    let body-A body-A-id
+    set body-A body-A-id
     set index 0
     set selected? false
     (foreach fixture-coords
@@ -60308,20 +60773,18 @@ to setup-debug-draw
           set type-of-turtle "fixture-coords"
           setxy item 0 coord item 1 coord
           set shape "circle"
-          set label ""
+          ifelse (first-coord-id = -1 and fixture-shape = "circle")
+          [ set label "x  " set label-color black ]
+          [ set label "" ]
           set size 0.75
-          set id (word id "-" index)
           ifelse (first-coord-id = -1) [
-            set first-coord-id id
+            set first-coord-id who
           ]
-          [
-            create-link-with one-of turtles with [id = prev-coord-id ]
-          ]
-          set prev-coord-id id
+          [ create-link-with turtle prev-coord-id ]
+          set prev-coord-id who
         ] ] )
-    ask one-of turtles with [ id = prev-coord-id ] [ 
-      create-link-with one-of turtles with [ id = first-coord-id ]
-    ]
+     ask turtle prev-coord-id [ create-link-with turtle first-coord-id ]
+     ht
   ]
   ask turtles with [ type-of-turtle = "target" ] [
     show-turtle
@@ -60332,23 +60795,15 @@ to setup-debug-draw
     set label body-A-id
     set selected? false
   ]
-  let this-joint-id -1
-  ask turtles with [ type-of-turtle = "joint" ] [
+  ask turtles with [ type-of-turtle = "distance-joint" ] [
     show-turtle
     set shape "circle 2"
-    
-    set this-joint-id id
-    
-    set color blue
+    set color 6 * 20 + 44
     set size 1
     setxy item 0 coords item 1 coords
     set label (word body-A-id ", " body-B-id)
     set selected? false
-
     let coord item 0 joint-coords
-    
-    ; show count turtles with [ id = first-coord-id ]
-    ; show (count turtles with [ id = first-coord-id and type-of-turtle = "joint"])
     hatch 1 [
       show-turtle
       set joint-index 0
@@ -60358,8 +60813,7 @@ to setup-debug-draw
       set label ""
       set size 0.75
       create-link-with turtle body-A-id
-      create-link-with one-of turtles with [id = this-joint-id and type-of-turtle = "joint"]
-      
+      set prev-coord-id who
     ]
     set coord item 1 joint-coords
     hatch 1 [
@@ -60371,7 +60825,29 @@ to setup-debug-draw
       set label ""
       set size 0.75
       create-link-with turtle body-B-id
-      create-link-with one-of turtles with [id = this-joint-id and type-of-turtle = "joint"]
+      create-link-with turtle prev-coord-id
+    ]
+  ]
+  ask turtles with [ type-of-turtle = "revolute-joint" ] [
+    show-turtle
+    set shape "circle 2"
+    set color 7 * 20 + 44
+    set size 1
+    setxy item 0 coords item 1 coords
+    set label (word body-A-id ", " body-B-id)
+    set selected? false
+
+    let coord item 0 joint-coords
+    hatch 1 [
+      show-turtle
+      set joint-index 0
+      set type-of-turtle "joint-coords"
+      setxy item 0 coord item 1 coord
+      set shape "circle"
+      set label ""
+      set size 0.75
+      create-link-with turtle body-A-id
+      create-link-with turtle body-B-id
     ]
   ]
 
@@ -60379,24 +60855,363 @@ end
 
 to remove-debug-draw
   ;; ask turtles with [ type-of-turtle = "body" ] [ hide-turtle ]
-  ask turtles with [ type-of-turtle = "fixture" ] [ hide-turtle set label ""]
+  ask turtles with [ type-of-turtle = "fixture" ] [ set label ""]
   ask turtles with [ type-of-turtle = "fixture-coords" ] [ die ]
   ask turtles with [ type-of-turtle = "target" ] [ hide-turtle ]
   ask turtles with [ type-of-turtle = "joint" ] [ hide-turtle ]
   ask turtles with [ type-of-turtle = "joint-coords" ] [ die ]
 end
 
-to client-procedure
+;;;;;;;;;;;;;;;;
+;; EDIT WORLD ;;
+;;;;;;;;;;;;;;;;
+
+to delete
+  set dragger-id -1
+  set dragger-type ""
+  set body-A -1
+  set body-B -1
+  set fixture -1
+  set joint -1
+  every 0.1 [
+    if (mouse-down?) [
+      ask patch mouse-xcor mouse-ycor [
+        if count turtles-here with [ type-of-turtle = "body" ] > 0 [
+          ask turtles-here with [type-of-turtle = "body" ] [
+            set dragger-id who
+            set dragger-type "body"
+          ]
+        ]
+        if count turtles-here with [ type-of-turtle = "fixture" ] > 0 [
+          ask turtles-here with [type-of-turtle = "fixture" ] [
+            set dragger-id who
+            set dragger-type "fixture"
+          ]
+        ]
+        if count turtles-here with [ type-of-turtle = "target" ] > 0 [
+          ask turtles-here with [type-of-turtle = "target" ] [
+            set dragger-id who
+            set dragger-type "target"
+          ]
+        ]
+        if count turtles-here with [ type-of-turtle = "revolute-joint" ] > 0 [
+          ask turtles-here with [type-of-turtle = "revolute-joint" ] [
+            set dragger-id who
+            set dragger-type "revolute-joint"
+          ]
+        ]
+        if count turtles-here with [ type-of-turtle = "distance-joint" ] > 0 [
+          ask turtles-here with [type-of-turtle = "distance-joint" ] [
+            set dragger-id who
+            set dragger-type "distance-joint"
+          ]
+        ]
+      ]
+      if (dragger-type = "body") [
+        ask turtle dragger-id [ die ]
+        ask turtles with [ body-A-id = dragger-id ] [ die ]
+      ]
+      if (dragger-type = "fixture") [
+        ask turtle dragger-id [
+          set body-A body-A-id
+          set fixture who
+          die
+        ]
+        ask turtles with [fixture = fixture-id ] [ die ]
+      ]
+      if (dragger-type = "target") [
+        ask turtle dragger-id [ die ]
+      ]
+      if (dragger-type = "revolute-joint") [
+        ask turtle dragger-id [
+          set joint who
+          die
+        ]
+        ask turtles with [joint = joint-id ] [ die ]
+      ]
+      if (dragger-type = "distance-joint") [
+        ask turtle dragger-id [
+          set joint who
+          die
+        ]
+        ask turtles with [joint = joint-id ] [ die ]
+      ]
+    ]
+  ]
+end
+
+to add-body
+  every 0.1 [
+    if (mouse-down?) [
+      create-turtles 1 [
+        set type-of-turtle "body"
+        set id who
+        set body-behavior behavior
+        setxy mouse-xcor mouse-ycor
+        set coords (list precision xcor 2 precision ycor 2)
+        set body-A-id who
+        set heading 0
+      ]
+      setup-debug-draw
+      stop
+    ]
+  ]
+end
+
+to add-fixture
+  every 0.1 [
+    if (mouse-down?) [
+      set body-A -1
+      if (count turtles with [type-of-turtle = "body" and selected? = true ] > 0 ) [
+        ask one-of turtles with [type-of-turtle = "body" and selected? = true ] [ set body-A body-A-id ]
+        create-turtles 1 [
+          set type-of-turtle "fixture"
+          set id who
+          set coords (list precision mouse-xcor 2 precision mouse-ycor 2)
+          set fixture-settings (list density friction restitution)
+          set fixture-shape shape-of-fixture
+          set body-A-id body-A
+          set fixture-id who
+          let num-coords 2
+          let temp-fixture-coords (list)
+          setxy mouse-xcor mouse-ycor
+          if (fixture-shape = "triangle") [ set num-coords 3 ]
+          if (fixture-shape = "quadrilateral") [ set num-coords 4 ]
+          if (fixture-shape = "pentagon") [ set num-coords 5 ]
+          let fixture-angle 360 / num-coords
+          while [ num-coords > 0 ] [
+            hatch 1 [
+              set type-of-turtle "temp-fixture-coords"
+              set heading fixture-angle * num-coords
+              fd 1
+              set temp-fixture-coords lput (list precision xcor 2 precision ycor 2 ) temp-fixture-coords
+            ]
+            set num-coords num-coords - 1
+          ]
+          ask turtles with [type-of-turtle = "temp-fixture-coords"] [ die ]
+          set fixture-coords temp-fixture-coords
+        ]
+        setup-debug-draw
+        stop
+      ]
+    ]
+  ]
+end
+
+to add-distance-joint
+  every 0.1 [
+    if (mouse-down?) [
+      let bodies (list)
+      if (count turtles with [type-of-turtle = "body" and selected? = true ] > 0 ) [
+        ask turtles with [type-of-turtle = "body" and selected? = true ] [ set bodies lput body-A-id bodies ]
+        if (length bodies = 2) [
+          create-turtles 1 [
+            set type-of-turtle "distance-joint"
+            set id who
+            set coords (list precision mouse-xcor 2 precision mouse-ycor 2 )
+            set body-A-id item 0 bodies
+            set body-B-id item 1 bodies
+            let temp-joint-coords (list)
+            set joint-id who
+            setxy mouse-xcor mouse-ycor
+            hatch 1 [
+              set type-of-turtle "temp-joint-coords"
+              set heading 270
+              fd 1
+              set temp-joint-coords lput (list precision xcor 2 precision ycor 2 ) temp-joint-coords
+            ]
+            hatch 1 [
+              set type-of-turtle "temp-joint-coords"
+              set heading 90
+              fd 1
+              set temp-joint-coords lput (list precision xcor 2 precision ycor 2 ) temp-joint-coords
+            ]
+            ask turtles with [type-of-turtle = "temp-joint-coords"] [ die ]
+            set joint-coords temp-joint-coords
+          ]
+          setup-debug-draw
+          stop
+        ]
+      ]
+    ]
+  ]
+end
+
+to add-revolute-joint
+  every 0.1 [
+    if (mouse-down?) [
+      let bodies (list)
+      if (count turtles with [type-of-turtle = "body" and selected? = true ] > 0 ) [
+        ask turtles with [type-of-turtle = "body" and selected? = true ] [ set bodies lput body-A-id bodies ]
+        if (length bodies = 2) [
+          create-turtles 1 [
+            set type-of-turtle "revolute-joint"
+            set id who
+            set coords (list precision mouse-xcor 2 precision mouse-ycor 2 )
+            set body-A-id item 0 bodies
+            set body-B-id item 1 bodies
+            let temp-joint-coords (list)
+            set joint-id who
+            setxy mouse-xcor mouse-ycor
+            hatch 1 [
+              set type-of-turtle "temp-joint-coords"
+              set heading 270
+              fd 1
+              set temp-joint-coords lput (list precision xcor 2 precision ycor 2 ) temp-joint-coords
+            ]
+
+            ask turtles with [type-of-turtle = "temp-joint-coords"] [ die ]
+            set joint-coords temp-joint-coords
+          ]
+          setup-debug-draw
+          stop
+        ]
+      ]
+    ]
+  ]
+end
+
+to add-target
+  every 0.1 [
+    if (mouse-down?) [
+      set body-A -1
+      if (count turtles with [type-of-turtle = "body" and selected? = true ] > 0 ) [
+        ask one-of turtles with [type-of-turtle = "body" and selected? = true ] [ set body-A body-A-id ]
+        create-turtles 1 [
+          set type-of-turtle "target"
+          set id who
+          set coords (list precision mouse-xcor 2 precision mouse-ycor 2)
+          set body-A-id body-A
+        ]
+        setup-debug-draw
+        stop
+      ]
+    ]
+  ]
+end
+
+to update-body
+  ask turtles with [ type-of-turtle = "body" and selected? ] [
+    set body-behavior behavior
+  ]
+  setup-debug-draw
+end
+
+to update-fixture
+  let temp-fixture-coords (list)
+  let num-coords 2
+  set body-A -1
+  if (shape-of-fixture = "triangle") [ set num-coords 3 ]
+  if (shape-of-fixture = "quadrilateral") [ set num-coords 4 ]
+  if (shape-of-fixture = "pentagon") [ set num-coords 5 ]
+  ;;let angle 360 / num-coords
+  ask turtles with [ type-of-turtle = "fixture" and selected? ] [
+    set fixture-settings (list density friction restitution)
+  ]
+  remove-debug-draw
+  setup-debug-draw
+end
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; ADD FORCES/IMPULSES TO WORLD ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+to select-target
+  every 0.1 [
+    if (mouse-down?) [
+      ask patch mouse-xcor mouse-ycor [
+        if count turtles-here with [ type-of-turtle = "target" ] > 0 [
+          ask one-of turtles-here with [type-of-turtle = "target"] [
+            ifelse (selected? = true) [
+              set selected? false
+              set color red
+            ] [
+              set selected? true
+              set color yellow
+            ]
+          ]
+        ]
+      ]
+    ]
+  ]
+end
+
+to select-body
+  every 0.1 [
+    if (mouse-down?) [
+      ask patch mouse-xcor mouse-ycor [
+        if count turtles-here with [ type-of-turtle = "body" ] > 0 [
+          ask one-of turtles-here with [type-of-turtle = "body"] [
+            ifelse (selected? = true) [
+              set selected? false
+              set color violet
+            ] [
+              ask turtles with [ type-of-turtle = "body" and selected? = true] [ set selected? false set color violet ]
+              set selected? true
+              set color yellow
+              set behavior body-behavior
+            ]
+          ]
+        ]
+      ]
+    ]
+  ]
+end
+
+to select-2-bodies
+  every 0.1 [
+    if (mouse-down?) [
+      ask patch mouse-xcor mouse-ycor [
+        if count turtles-here with [ type-of-turtle = "body" ] > 0 [
+          ask one-of turtles-here with [type-of-turtle = "body"] [
+            ifelse (selected? = true) [
+              set selected? false
+              set color violet
+            ] [
+              set selected? true
+              set color yellow
+              set behavior body-behavior
+            ]
+          ]
+        ]
+      ]
+    ]
+  ]
+end
+
+to select-fixture
+  every 0.1 [
+    if (mouse-down?) [
+      ask patch mouse-xcor mouse-ycor [
+        if count turtles-here with [ type-of-turtle = "fixture" ] > 0 [
+          ask one-of turtles-here with [type-of-turtle = "fixture"] [
+            ifelse (selected? = true) [
+              set selected? false
+              set color default-color
+            ] [
+              ask turtles with [ type-of-turtle = "fixture" and selected? = true ] [ set selected? false set color default-color ]
+              set selected? true
+              set color yellow
+              set shape-of-fixture fixture-shape
+              set density item 0 fixture-settings
+              set friction item 1 fixture-settings
+              set restitution item 2 fixture-settings
+            ]
+          ]
+        ]
+      ]
+    ]
+  ]
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
-158
+339
 10
-647
-500
+816
+488
 -1
 -1
-22.905
+22.333333333333332
 1
 10
 1
@@ -60416,30 +61231,112 @@ GRAPHICS-WINDOW
 ticks
 30.0
 
-BUTTON
-27
-12
-129
-45
-NIL
-start-world
-NIL
-1
-T
-OBSERVER
-NIL
-NIL
-NIL
-NIL
+CHOOSER
+841
+220
+969
+265
+shape-of-fixture
+shape-of-fixture
+"edge" "circle" "triangle" "quadrilateral" "pentagon"
 1
 
 BUTTON
-27
-102
+839
 128
-135
+968
+161
+add-shape
+add-shape
+T
+1
+T
+OBSERVER
 NIL
-stop-world
+NIL
+NIL
+NIL
+1
+
+SLIDER
+843
+271
+969
+304
+density
+density
+0
+1
+0.1
+0.1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+841
+311
+970
+344
+friction
+friction
+0
+1
+0.1
+0.1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+842
+350
+971
+383
+restitution
+restitution
+0
+1
+1.0
+0.1
+1
+NIL
+HORIZONTAL
+
+CHOOSER
+841
+168
+967
+213
+behavior
+behavior
+"static" "dynamic"
+1
+
+BUTTON
+995
+199
+1143
+232
+add-distance-joint
+add-distance-joint
+T
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+BUTTON
+339
+498
+439
+531
+save
+save
 NIL
 1
 T
@@ -60450,35 +61347,130 @@ NIL
 NIL
 1
 
-SWITCH
-21
-58
-133
-91
-running?
-running?
+SLIDER
+930
+37
+1070
+70
+gravity-x
+gravity-x
+0
+10
+0.0
 1
 1
--1000
+NIL
+HORIZONTAL
+
+TEXTBOX
+853
+103
+985
+121
+CREATE SHAPE
+14
+0.0
+1
+
+BUTTON
+721
+496
+814
+529
+drag
+drag
+T
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+BUTTON
+338
+538
+439
+571
+delete
+delete
+T
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+TEXTBOX
+1025
+101
+1140
+119
+JOIN SHAPES
+14
+0.0
+1
+
+TEXTBOX
+998
+127
+1144
+161
+Select two shapes. Click on a location for the joint.
+11
+0.0
+1
+
+BUTTON
+29
+496
+165
+529
+load-box2d-world
+load-demo
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+TEXTBOX
+1043
+11
+1124
+32
+WORLD
+14
+0.0
+1
 
 INPUTBOX
-665
-10
-1106
-459
-code-to-setup-world
+26
+107
+327
+485
+code-for-box2d-world
 NIL
 1
 1
 String
 
 BUTTON
-667
-470
-757
-503
-NIL
-run-code
+844
+538
+974
+571
+update-shape
+update-shape
 NIL
 1
 T
@@ -60490,12 +61482,342 @@ NIL
 1
 
 BUTTON
-786
+614
+495
+713
+528
+select
+select
+T
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+BUTTON
+994
+239
+1143
+272
+add-revolute-joint
+add-revolute-joint
+T
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+BUTTON
+32
+12
+167
+45
+reset
+setup
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+BUTTON
+191
+12
+326
+45
+go
+go
+T
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+BUTTON
+995
+159
+1143
+192
+glue-together
+glue-together
+T
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+TEXTBOX
+1189
+101
+1315
+119
+CREATE TARGET
+14
+0.0
+1
+
+TEXTBOX
+1183
+126
+1322
+168
+Select a body. Click on a location for the target.
+11
+0.0
+1
+
+BUTTON
+1177
+158
+1322
+191
+add-target
+add-target
+T
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+SLIDER
+1079
+37
+1219
+70
+gravity-y
+gravity-y
+0
+10
+5.0
+1
+1
+NIL
+HORIZONTAL
+
+CHOOSER
+30
+535
+165
+580
+box2d-world
+demo
+"code-above" "donuts-in-space" "car-on-a-hill" "bouncy-balls" "empty-world"
+4
+
+TEXTBOX
+841
 471
-897
-504
-update-once
-update-once
+991
+527
+Select a shape. Press the update button to assign that shape the values above.
+11
+0.0
+1
+
+TEXTBOX
+857
+443
+1007
+461
+UPDATE SHAPE
+14
+0.0
+1
+
+SWITCH
+994
+324
+1145
+357
+allow-collisions
+allow-collisions
+1
+1
+-1000
+
+SWITCH
+842
+391
+971
+424
+is-sensor
+is-sensor
+1
+1
+-1000
+
+CHOOSER
+1178
+262
+1312
+307
+push-target-forward
+push-target-forward
+"apply-force" "apply-linear-impulse"
+0
+
+SLIDER
+1169
+313
+1321
+346
+push-fd-amount
+push-fd-amount
+0
+10
+5.0
+1
+1
+NIL
+HORIZONTAL
+
+BUTTON
+1179
+353
+1311
+386
+push-forward
+push-forward
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+TEXTBOX
+1168
+398
+1337
+416
+PUSH TARGET AROUND
+14
+0.0
+1
+
+TEXTBOX
+1170
+225
+1344
+267
+Select a target. Press the push button to push target forward.
+11
+0.0
+1
+
+TEXTBOX
+1166
+204
+1345
+238
+PUSH TARGET FORWARD
+14
+0.0
+1
+
+CHOOSER
+1179
+453
+1315
+498
+push-target-around
+push-target-around
+"apply-torque" "apply-angular-impulse"
+1
+
+TEXTBOX
+1170
+419
+1364
+461
+Select a target. Press the push button to push target around.
+11
+0.0
+1
+
+BUTTON
+1178
+539
+1314
+572
+push-around
+push-around
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+SLIDER
+1170
+502
+1325
+535
+push-around-amount
+push-around-amount
+0
+10
+5.0
+1
+1
+NIL
+HORIZONTAL
+
+BUTTON
+995
+283
+1144
+316
+NIL
+add-prismatic-joint
+T
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+BUTTON
+191
+53
+325
+86
+preview
+go-once
 NIL
 1
 T
@@ -60508,6 +61830,8 @@ NIL
 
 @#$#@#$#@
 ## WHAT IS IT?
+
+http://www.iforce2d.net/b2dtut/fixtures
 
 (a general understanding of what the model is trying to show or explain)
 
@@ -60600,9 +61924,9 @@ Circle -7500403 true true 47 195 58
 Circle -7500403 true true 195 195 58
 
 circle
-false
+true
 0
-Circle -7500403 true true 0 0 300
+Circle -7500403 true true 8 8 284
 
 circle 2
 false
@@ -60622,10 +61946,22 @@ false
 0
 Circle -7500403 true true 0 0 300
 
+donut
+false
+3
+Circle -6459832 true true 0 0 300
+Circle -955883 true false 105 120 0
+Circle -16777216 true false 75 75 150
+
 dot
 false
 0
 Circle -7500403 true true 90 90 120
+
+edge
+true
+0
+Line -2674135 false 0 150 300 150
 
 face happy
 false
@@ -60684,6 +62020,15 @@ Circle -7500403 true true 96 51 108
 Circle -16777216 true false 113 68 74
 Polygon -10899396 true false 189 233 219 188 249 173 279 188 234 218
 Polygon -10899396 true false 180 255 150 210 105 210 75 240 135 240
+
+ghost
+false
+0
+Polygon -7500403 true true 30 165 13 164 -2 149 0 135 -2 119 0 105 15 75 30 75 58 104 43 119 43 134 58 134 73 134 88 104 73 44 78 14 103 -1 193 -1 223 29 208 89 208 119 238 134 253 119 240 105 238 89 240 75 255 60 270 60 283 74 300 90 298 104 298 119 300 135 285 135 285 150 268 164 238 179 208 164 208 194 238 209 253 224 268 239 268 269 238 299 178 299 148 284 103 269 58 284 43 299 58 269 103 254 148 254 193 254 163 239 118 209 88 179 73 179 58 164
+Line -16777216 false 189 253 215 253
+Circle -16777216 true false 102 30 30
+Polygon -16777216 true false 165 105 135 105 120 120 105 105 135 75 165 75 195 105 180 120
+Circle -16777216 true false 160 30 30
 
 house
 false
@@ -60864,10 +62209,26 @@ true
 0
 Line -7500403 true 150 150 90 180
 Line -7500403 true 150 150 210 180
+
+cat
+3.0
+-0.2 1 4.0 4.0
+0.0 1 2.0 2.0
+0.2 1 1.0 0.0
+link direction
+true
+0
+Line -7500403 true 150 75 90 105
+Line -2674135 false 150 75 210 105
+Line -16777216 false 90 105 105 210
+Line -16777216 false 165 165 165 165
+Rectangle -2064490 false false 105 120 180 180
+Line -955883 false 210 105 195 210
+Line -2064490 false 180 180 195 210
+Line -2064490 false 105 120 90 105
 @#$#@#$#@
 0
 @#$#@#$#@
-
 
 </script>
 
