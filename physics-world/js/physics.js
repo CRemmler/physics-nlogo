@@ -276,42 +276,37 @@ Physics = (function() {
   }
   
   function applyForce(m) {
-    //physics-eval "apply force" (list id body-A-id coords target-coords push-fd-amount )       
     var id = m[0];
     var bodyA = m[1];
     var coords = m[2];
-    var targetCoords = m[3];
-    var amount = m[4]*50;
-    console.log("apply force "+id+" "+bodyA+" "+coords+" "+targetCoords+" "+amount);
-    var changeInX = targetCoords[1][0] - targetCoords[0][0];
-    var changeInY = targetCoords[1][1] - targetCoords[0][1];
+    var heading = m[3];
+    var amount = m[4];
+    console.log("apply force "+id+" "+bodyA+" "+coords+" "+heading+" "+amount);
     var coordsA = nlogotobox2d(coords[0]);
+    var radians = degreestoradians(heading);
+    console.log(heading+" "+roundToTenths(Math.cos(radians)*amount)+" "+roundToTenths(Math.sin(radians)*amount));
     bodyObj[bodyA].ApplyForce(
-      {x:changeInX*amount, y:changeInY*amount}, 
-      new b2Vec2(roundToTenths(coordsA[0]), roundToTenths(coordsA[1])), )
+      {x:roundToTenths(Math.cos(radians)*amount), y:roundToTenths(Math.sin(radians)*amount)}, 
+      new b2Vec2(roundToTenths(coordsA[0]), roundToTenths(coordsA[1])) );
   }
   
-  function applyImpulse(m) {
-    console.log("apply impulse");
-    console.log(m);
-    //physics-eval "apply force" (list id body-A-id coords target-coords push-fd-amount )       
+  function applyLinearImpulse(m) {
     var id = m[0];
     var bodyA = m[1];
     var coords = m[2];
-    var targetCoords = m[3];
+    var heading = m[3];
     var amount = m[4] * 50;
-    
-    console.log("apply impulse "+id+" "+bodyA+" "+coords+" "+targetCoords+" "+amount);
-    var changeInX = targetCoords[1][0] - targetCoords[0][0];
-    var changeInY = targetCoords[1][1] - targetCoords[0][1];
-    console.log(changeInX+" "+changeInY);
+    console.log("apply impulse "+id+" "+bodyA+" "+coords+" "+heading+" "+amount);
     var coordsA = nlogotobox2d(coords);
-    console.log("x "+changeInX*amount+" y "+changeInY*amount);
-    console.log("from "+coordsA[0]+", "+coordsA[1]);
+    var radians = degreestoradians(heading);
+    console.log(Math.cos(radians)*amount+" "+Math.sin(radians)*amount);
     bodyObj[bodyA].ApplyImpulse(
-      {x:changeInX*amount, y:changeInY*amount}, 
-      new b2Vec2(roundToTenths(coordsA[0]), roundToTenths(coordsA[1])), )
+      {x:Math.cos(radians)*amount, y:Math.sin(radians)*amount}, 
+      new b2Vec2(roundToTenths(coordsA[0]), roundToTenths(coordsA[1])) );
   }
+  
+  function applyTorque() {}
+  function applyAngularImpulse() {}
   
   function setupDebugDraw() {
     if (world) {
@@ -429,7 +424,7 @@ Physics = (function() {
     }
     
     if (running) {
-      console.log("update");
+      //console.log("update");
       universe.repaint();
       world.Step(
              1 / 60   //frame-rate
@@ -446,7 +441,6 @@ Physics = (function() {
           var heading = radianstodegrees(b.GetAngle());
           universe.model.turtles[id].xcor = pos.x;
           universe.model.turtles[id].ycor = pos.y;
-          console.log(b.GetAngle() +" "+heading);
           universe.model.turtles[id].heading = heading;
         } else if (b.GetType() == b2Body.b2_staticBody) {
           var pos = box2dtonlogo(b.GetPosition());
@@ -457,11 +451,8 @@ Physics = (function() {
       world.ClearForces();
       // mouse drags images
       if(isMouseDown && (!mouseJoint)) {
-        console.log("mouse down and not a joint");
         var body = getBodyAtMouse();
         if(body) {
-          console.log("there is a body");
-          
           if (!body.m_userData.selected) {
             for (b = world.GetBodyList() ; b; b = b.GetNext())
             {
@@ -596,7 +587,9 @@ Physics = (function() {
     redrawWorld: redrawWorld,
     drag: drag,
     applyForce: applyForce,
-    applyImpulse: applyImpulse
+    applyLinearImpulse: applyLinearImpulse,
+    applyTorque: applyTorque,
+    applyAngularImpulse: applyAngularImpulse
   };
 
 })();

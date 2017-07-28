@@ -47251,7 +47251,9 @@ c=e.buttons;A=0;if(e.enabled!==!1){for(b in c)a.addButton(c[b]);u(a,"destroy",a.
       if (messageTag === "remove debug draw") { Physics.removeDebugDraw(); };
       if (messageTag === "drag") { Physics.drag(message);}
       if (messageTag === "apply force") { Physics.applyForce(message);}
-      if (messageTag === "apply impulse") { Physics.applyImpulse(message);}
+      if (messageTag === "apply linear impulse") { Physics.applyLinearImpulse(message);}
+      if (messageTag === "apply torque") { Physics.applyTorque(message);}
+      if (messageTag === "apply angular impulse") { Physics.applyAngularImpulse(message);}
     };
     
     HubnetManager.prototype.gbccRunCode = function(x) {
@@ -60258,9 +60260,6 @@ turtles-own [
   joint-coords ;; helpers for joints
   joint-id
   
-  target-coords ;; helpers for targets
-  target-id
-  target-index
 
   old-body-id ;; body
 
@@ -60366,28 +60365,31 @@ to load-demo
 end
 
 to push-forward
-  let bodies (list)
-  ask turtles with [type-of-turtle = "target" and selected? = true ] 
-  [ set bodies lput id bodies ]
-  (foreach bodies
-    [ [body] ->
-      ask turtle body [
-        show id 
-        show body-A-id 
-        show coords 
-        show target-coords 
-        show push-fd-amount      
-        ifelse (push-target-forward = "apply force") [
-          physics-eval "apply force" (list id body-A-id coords target-coords push-fd-amount )       
-        ] [
-          physics-eval "apply impulse" (list id body-A-id coords target-coords push-fd-amount )       
-        ]
-      ]    
-    ])
+  if turtle target1-id != nobody [
+    ifelse (push-target-forward = "apply-force") [
+      ask turtle target1-id [
+        physics-eval "apply force" (list target1-id body-A-id coords target1-heading push-fd-amount )  
+      ]     
+    ] [
+      ask turtle target1-id [
+;       physics-eval "apply linear impulse" (list target1-id body-A-id coords target1-heading push-fd-amount )       
+      ]
+    ]
+  ]
 end
 
 to push-around
-
+  if turtle target2-id != nobody [
+    ifelse (push-target-around = "apply-torque") [
+      ask turtle target2-id [
+        physics-eval "apply force" (list target2-id body-A-id coords target2-heading push-fd-amount )  
+      ]     
+    ] [
+      ask turtle target2-id [
+        physics-eval "apply angular impulse" (list target2-id body-A-id coords target2-heading push-fd-amount )       
+      ]
+    ]
+  ]
 end
 
 to setup-box2d-world
@@ -60417,7 +60419,7 @@ end
 to add-shape
   every 0.1 [
     if (mouse-down?) [ 
-      let temp-color random 7 * 10 + 54 + random 3
+      let temp-color random 7 * 10 + 64 + random 3
       
       set body-A -1
       create-turtles 1 [
@@ -60448,6 +60450,7 @@ to add-shape
         let fixture-angle 360 / num-coords
         while [ num-coords > 0 ] [
           hatch 1 [
+            set heading 300 fd 1 set heading 0
             set type-of-turtle "temp-fixture-coords"
             set heading fixture-angle * num-coords + 45
             fd 1
@@ -60458,15 +60461,11 @@ to add-shape
         ask turtles with [type-of-turtle = "temp-fixture-coords"] [ die ]
         set fixture-coords temp-fixture-coords
       ]
-      ;;setup-debug-draw
+      ;;setup-debug-draw      
       reset
       stop 
     ]
   ]
-end
-
-to add-target2
-
 end
 
 ;;;;;;;;;;;;;;;;;;;;;;
@@ -60486,17 +60485,6 @@ to select
               set selected? true
               set color yellow
               set behavior body-behavior
-            ]
-          ]
-        ]
-        if count turtles-here with [ type-of-turtle = "target" ] > 0 [
-          ask one-of turtles-here with [type-of-turtle = "target"] [
-            ifelse (selected? = true) [
-              set selected? false
-              set color orange
-            ] [
-              set selected? true
-              set color yellow
             ]
           ]
         ]
@@ -60537,7 +60525,7 @@ end
 
 
 to drag
-  let turtle-type-list [ "body" "fixture" "fixture-coords" "target" "revolute-joint" "prismatic-joint" "distance-joint" "joint-coords" "target-coords"]
+  let turtle-type-list [ "body" "fixture" "fixture-coords" "target" "revolute-joint" "prismatic-joint" "distance-joint" "joint-coords" ]
 
   every 0.1 [
     if (mouse-state = 0) [ set mouse-state "up" ]
@@ -60554,11 +60542,6 @@ to drag
               set body-A body-A-id
               set fixture fixture-id
               set fixture-ind fixture-index
-            ]
-            if (type-of-turtle = "target-coords") [
-              set body-A body-A-id
-              set target target-id
-              set target-ind target-index
             ]
             if (type-of-turtle = "joint-coords") [
               set body-A body-A-id
@@ -60580,11 +60563,6 @@ to drag
         if (dragger-type = "joint-coords") [        
           ask turtle joint [
             set joint-coords replace-item joint-ind joint-coords (list mouse-xcor mouse-ycor)
-          ]
-        ]
-        if (dragger-type = "target-coords") [        
-          ask turtle target [
-            set target-coords replace-item target-ind target-coords (list mouse-xcor mouse-ycor)
           ]
         ]
         if (member? dragger-type ["body" "fixture" "revolute-joint" "prismatic-joint" "distance-joint" "target"]) [
@@ -60924,30 +60902,12 @@ to setup-debug-draw
   ask turtles with [ type-of-turtle = "target" ] [
     show-turtle
     set size 1
+    set color red
     setxy item 0 coords item 1 coords
     set selected? false
-    let coord item 0 target-coords
-    hatch 1 [
-      show-turtle
-      set joint-index 0
-      set type-of-turtle "target-coords"
-      setxy item 0 coord item 1 coord
-      set shape "target"
-      set label body-A
-      set size 0.75
-      set prev-coord-id who
-    ]
-    set coord item 1 target-coords
-    hatch 1 [
-      show-turtle
-      set joint-index 1
-      set type-of-turtle "target-coords"
-      setxy item 0 coord item 1 coord
-      set shape "circle 2"
-      set size 0.5
-      create-link-with turtle prev-coord-id [ set color gray ]
-    ]
-    ht
+    set shape "target"
+    set label body-A-id
+    set size 0.75
   ]
   ask turtles with [ type-of-turtle = "distance-joint" ] [
     show-turtle
@@ -61039,7 +60999,6 @@ to remove-debug-draw
   ask turtles with [ type-of-turtle = "joint" ] [ hide-turtle ]
   ask turtles with [ type-of-turtle = "joint-coords" ] [ die ]
   ask turtles with [type-of-turtle = "target"] [hide-turtle]
-  ask turtles with [ type-of-turtle = "target-coords" ] [ die ]
 end
 
 ;;;;;;;;;;;;;;;;
@@ -61080,12 +61039,6 @@ to delete
             set dragger-type "joint-coords"
           ]
         ]
-        if count turtles-here with [ type-of-turtle = "target-coords" ] > 0 [
-          ask turtles-here with [type-of-turtle = "target-coords" ] [
-            set dragger-id target-id
-            set dragger-type "target-coords"
-          ]
-        ]
       ]
       if (dragger-type = "body") [
         ask turtles with [ body-A-id = dragger-id ] [ die ]
@@ -61103,9 +61056,6 @@ to delete
       ]
       if (dragger-type = "joint-coords") [
         ask turtles with [joint-id = dragger-id] [ die ]
-      ]
-      if (dragger-type = "target-coords") [
-        ask turtles with [target-id = dragger-id] [ die ]
       ]
     ]
   ]
@@ -61248,34 +61198,14 @@ to add-target
       set body-A -1
       if (count turtles with [type-of-turtle = "body" and selected? = true ] > 0 ) [
         ask one-of turtles with [type-of-turtle = "body" and selected? = true ] [ set body-A body-A-id ]
-        
         create-turtles 1 [
           set type-of-turtle "target"
           set id who
           set coords (list precision mouse-xcor 2 precision mouse-ycor 2)
           set body-A-id body-A
-          set target-id who
           let num-coords 2
-          let temp-target-coords (list)
           setxy mouse-xcor mouse-ycor
-          let target-angle 360 / num-coords
-            hatch 1 [
-              set type-of-turtle "temp-target-coords"
-              set heading target-angle
-              fd 1
-              set temp-target-coords lput (list precision xcor 2 precision ycor 2 ) temp-target-coords
-              set label body-A
-            ]
-            hatch 1 [
-              set type-of-turtle "temp-target-coords"
-              set heading target-angle * 2
-              fd 1
-              set temp-target-coords lput (list precision xcor 2 precision ycor 2 ) temp-target-coords
-            ]
-          ask turtles with [type-of-turtle = "temp-target-coords"] [ die ]
-          set target-coords temp-target-coords
         ]
-
         setup-debug-draw
         stop
       ]
@@ -61369,7 +61299,7 @@ CHOOSER
 265
 shape-of-fixture
 shape-of-fixture
-"edge" "circle" "triangle" "box"
+"edge" "circle" "triangle" "quadrilateral" "pentagon"
 1
 
 BUTTON
@@ -61428,7 +61358,7 @@ restitution
 restitution
 0
 1
-1.0
+0.3
 0.1
 1
 NIL
@@ -61462,10 +61392,10 @@ NIL
 1
 
 BUTTON
-339
-498
-439
-531
+340
+496
+453
+529
 save-as-code
 save
 NIL
@@ -61479,15 +61409,15 @@ NIL
 1
 
 SLIDER
-930
-37
-1070
-70
+846
+39
+986
+72
 gravity-x
 gravity-x
 0
 10
-0.0
+0
 1
 1
 NIL
@@ -61504,10 +61434,10 @@ CREATE SHAPE
 1
 
 BUTTON
-721
-496
-814
-529
+734
+494
+815
+527
 drag
 drag
 T
@@ -61521,10 +61451,10 @@ NIL
 1
 
 BUTTON
-446
-498
-547
-531
+459
+495
+543
+528
 delete
 delete
 T
@@ -61558,10 +61488,10 @@ Select two shapes. Click on a location for the joint.
 1
 
 BUTTON
-29
-496
-165
-529
+206
+597
+323
+630
 load-code
 load-demo
 NIL
@@ -61575,20 +61505,20 @@ NIL
 1
 
 TEXTBOX
-1043
-11
-1124
-32
+959
+13
+1040
+34
 WORLD
 14
 0.0
 1
 
 INPUTBOX
-26
-107
-327
-485
+23
+161
+324
+539
 code-for-box2d-world
 NIL
 1
@@ -61596,10 +61526,10 @@ NIL
 String
 
 BUTTON
-844
-538
-974
-571
+840
+495
+970
+528
 update-shape
 update-shape
 NIL
@@ -61613,10 +61543,10 @@ NIL
 1
 
 BUTTON
-614
-495
-713
-528
+647
+494
+726
+527
 select
 select
 T
@@ -61647,10 +61577,10 @@ NIL
 1
 
 BUTTON
-32
-12
-167
-45
+24
+40
+159
+73
 reset
 reset
 NIL
@@ -61664,10 +61594,10 @@ NIL
 1
 
 BUTTON
-191
-12
-326
-45
+183
+40
+318
+73
 go
 go
 T
@@ -61687,7 +61617,7 @@ BUTTON
 192
 glue-together
 glue-together
-T
+NIL
 1
 T
 OBSERVER
@@ -61698,30 +61628,30 @@ NIL
 1
 
 TEXTBOX
-1189
-101
-1315
-119
+1012
+399
+1138
+417
 CREATE TARGET
 14
 0.0
 1
 
 TEXTBOX
-1183
-126
-1322
-168
-Select a shape. Click on a location for the target.
+1006
+424
+1145
+466
+Select a body. Click on a location for the target.
 11
 0.0
 1
 
 BUTTON
-1177
-158
-1322
-191
+1000
+456
+1145
+489
 add-target
 add-target
 T
@@ -61735,10 +61665,10 @@ NIL
 1
 
 SLIDER
-1079
-37
-1219
-70
+995
+39
+1135
+72
 gravity-y
 gravity-y
 0
@@ -61750,54 +61680,50 @@ NIL
 HORIZONTAL
 
 CHOOSER
-30
-535
-165
-580
-box2d-world
+206
+546
+324
+591
+demo
 demo
 "code-above" "donuts-in-space" "car-on-a-hill" "bouncy-balls" "empty-world"
 4
 
 TEXTBOX
-841
-471
-991
-527
+837
+428
+987
+484
 Select a shape. Press the update button to assign that shape the values above.
 11
 0.0
 1
 
 TEXTBOX
-857
-443
-1007
-461
+853
+400
+1003
+418
 UPDATE SHAPE
 14
 0.0
 1
 
-
-
-
-
 CHOOSER
-1178
-262
-1312
-307
+1186
+161
+1320
+206
 push-target-forward
 push-target-forward
 "apply-force" "apply-linear-impulse"
 0
 
 SLIDER
-1169
-313
-1321
-346
+1163
+251
+1345
+284
 push-fd-amount
 push-fd-amount
 0
@@ -61809,10 +61735,10 @@ NIL
 HORIZONTAL
 
 BUTTON
-1179
-353
-1311
-386
+1241
+293
+1345
+326
 push-forward
 push-forward
 NIL
@@ -61826,61 +61752,61 @@ NIL
 1
 
 TEXTBOX
-1168
-398
-1337
-416
+1376
+102
+1545
+120
 PUSH TARGET AROUND
 14
 0.0
 1
 
 TEXTBOX
-1170
-225
-1344
-267
+1178
+124
+1352
+166
 Select a target. Press the push button to push target forward.
 11
 0.0
 1
 
 TEXTBOX
-1166
-204
-1345
-238
+1174
+103
+1353
+137
 PUSH TARGET FORWARD
 14
 0.0
 1
 
 CHOOSER
-1179
-453
-1315
-498
+1386
+159
+1522
+204
 push-target-around
 push-target-around
 "apply-torque" "apply-angular-impulse"
 1
 
 TEXTBOX
-1170
-419
-1364
-461
+1378
+123
+1572
+165
 Select a target. Press the push button to push target around.
 11
 0.0
 1
 
 BUTTON
-1178
-539
-1314
-572
-(push-around)
+1453
+289
+1547
+322
+push-around
 push-around
 NIL
 1
@@ -61893,10 +61819,10 @@ NIL
 1
 
 SLIDER
-1170
-502
-1325
-535
+1370
+249
+1547
+282
 push-around-amount
 push-around-amount
 0
@@ -61907,13 +61833,11 @@ push-around-amount
 NIL
 HORIZONTAL
 
-
-
 BUTTON
-191
-53
-325
-86
+183
+81
+317
+114
 preview
 go-once
 NIL
@@ -61927,10 +61851,10 @@ NIL
 1
 
 BUTTON
-220
-497
-326
-530
+206
+638
+323
+671
 run-code
 setup
 NIL
@@ -61941,6 +61865,88 @@ NIL
 NIL
 NIL
 NIL
+1
+
+INPUTBOX
+1163
+292
+1236
+352
+target1-id
+NIL
+1
+0
+String
+
+SLIDER
+1164
+212
+1345
+245
+target1-heading
+target1-heading
+0
+360
+0.0
+10
+1
+deg
+HORIZONTAL
+
+INPUTBOX
+1370
+288
+1448
+348
+target2-id
+NIL
+1
+0
+String
+
+SLIDER
+1370
+212
+1546
+245
+target2-heading
+target2-heading
+0
+360
+0.0
+10
+1
+deg
+HORIZONTAL
+
+TEXTBOX
+109
+15
+259
+33
+UPDATE WORLD
+14
+0.0
+1
+
+TEXTBOX
+119
+135
+269
+153
+DEMO CODE
+14
+0.0
+1
+
+TEXTBOX
+25
+549
+197
+677
+1. Select a demo from the chooser menu. \n\n2. Press the load-demo button to show the code needed to generate the world. \n\n3. Press the run-code button to generate the world.\n
+11
+0.0
 1
 
 @#$#@#$#@
