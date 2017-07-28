@@ -30,6 +30,7 @@ Physics = (function() {
      ,  b2MouseJointDef = Box2D.Dynamics.Joints.b2MouseJointDef
      ,  b2DistanceJointDef = Box2D.Dynamics.Joints.b2DistanceJointDef
      ,  b2RevoluteJointDef = Box2D.Dynamics.Joints.b2RevoluteJointDef
+     ,  b2PrismaticJointDef = Box2D.Dynamics.Joints.b2PrismaticJointDef
      ;
   var bodyObj = {};
   var turtleObj = {};
@@ -222,7 +223,6 @@ Physics = (function() {
     var bodyA = m[1];
     var bodyB = m[2];
     var coords = m[3];
-    console.log("addRevoluteJointToBody "+id+" "+bodyA+" "+bodyB+" "+coords);
     var coordsA = nlogotobox2d(coords[0]);
     var coordsB = nlogotobox2d(coords[1]);
     var bodyAOffsetX = bodyObj[bodyA].GetPosition().x;
@@ -255,8 +255,64 @@ Physics = (function() {
     world.CreateJoint(joint);
   }
   function addPrismaticJointToBody(m) {
-    
+    var id = m[0];
+    var bodyA = m[1];
+    var bodyB = m[2];
+    var coords = m[3];
+    var coordsA = nlogotobox2d(coords[0]);
+    var coordsB = nlogotobox2d(coords[1]);
+    var bodyAOffsetX = bodyObj[bodyA].GetPosition().x;
+    var bodyAOffsetY = bodyObj[bodyA].GetPosition().y;
+    var bodyBOffsetX = bodyObj[bodyB].GetPosition().x;
+    var bodyBOffsetY = bodyObj[bodyB].GetPosition().y;
+    console.log("addPrismaticJointToBody "+id+" "+bodyA+" "+bodyB+" "+coords);
+    var joint = new b2PrismaticJointDef();
+    joint.Initialize(bodyObj[bodyA], bodyObj[bodyB], 
+      new b2Vec2(roundToTenths(coordsA[0]), roundToTenths(coordsA[1])), 
+      new b2Vec2(roundToTenths(coordsB[0]), roundToTenths(coordsB[1])));   
+    joint.collideConnected = true;
+    console.log(joint);
+    world.CreateJoint(joint);
   }
+  
+  function applyForce(m) {
+    //physics-eval "apply force" (list id body-A-id coords target-coords push-fd-amount )       
+    var id = m[0];
+    var bodyA = m[1];
+    var coords = m[2];
+    var targetCoords = m[3];
+    var amount = m[4]*50;
+    console.log("apply force "+id+" "+bodyA+" "+coords+" "+targetCoords+" "+amount);
+    var changeInX = targetCoords[1][0] - targetCoords[0][0];
+    var changeInY = targetCoords[1][1] - targetCoords[0][1];
+    var coordsA = nlogotobox2d(coords[0]);
+    bodyObj[bodyA].ApplyForce(
+      {x:changeInX*amount, y:changeInY*amount}, 
+      new b2Vec2(roundToTenths(coordsA[0]), roundToTenths(coordsA[1])), )
+  }
+  
+  function applyImpulse(m) {
+    console.log("apply impulse");
+    console.log(m);
+    //physics-eval "apply force" (list id body-A-id coords target-coords push-fd-amount )       
+    var id = m[0];
+    var bodyA = m[1];
+    var coords = m[2];
+    var targetCoords = m[3];
+    var amount = m[4] * 50;
+    
+    console.log("apply impulse "+id+" "+bodyA+" "+coords+" "+targetCoords+" "+amount);
+    var changeInX = targetCoords[1][0] - targetCoords[0][0];
+    var changeInY = targetCoords[1][1] - targetCoords[0][1];
+    console.log(changeInX+" "+changeInY);
+    var coordsA = nlogotobox2d(coords);
+    console.log("x "+changeInX*amount+" y "+changeInY*amount);
+    console.log("from "+coordsA[0]+", "+coordsA[1]);
+    bodyObj[bodyA].ApplyImpulse(
+      {x:changeInX*amount, y:changeInY*amount}, 
+      new b2Vec2(roundToTenths(coordsA[0]), roundToTenths(coordsA[1])), )
+  }
+  
   function setupDebugDraw() {
     if (world) {
       console.log("setup debug draw box2d");
@@ -348,7 +404,7 @@ Physics = (function() {
           var heading = radianstodegrees(b.GetAngle());
           universe.model.turtles[id].xcor = pos.x;
           universe.model.turtles[id].ycor = pos.y;
-          universe.model.turtles[id].heading = radianstodegrees(b.GetAngle());
+          universe.model.turtles[id].heading = heading;
           // OR just keep stamping body of turtle at that position (but which turtle shape)
           // on update, just keep stamping turtle 
           // on updateOnce, actually move turtle 
@@ -390,7 +446,8 @@ Physics = (function() {
           var heading = radianstodegrees(b.GetAngle());
           universe.model.turtles[id].xcor = pos.x;
           universe.model.turtles[id].ycor = pos.y;
-          universe.model.turtles[id].heading = radianstodegrees(b.GetAngle());
+          console.log(b.GetAngle() +" "+heading);
+          universe.model.turtles[id].heading = heading;
         } else if (b.GetType() == b2Body.b2_staticBody) {
           var pos = box2dtonlogo(b.GetPosition());
           universe.model.turtles[id].xcor = pos.x;
@@ -537,8 +594,9 @@ Physics = (function() {
     nlogotobox2d: nlogotobox2d,
     box2dtonlogo: box2dtonlogo,
     redrawWorld: redrawWorld,
-    drag: drag
-    
+    drag: drag,
+    applyForce: applyForce,
+    applyImpulse: applyImpulse
   };
 
 })();

@@ -47250,6 +47250,8 @@ c=e.buttons;A=0;if(e.enabled!==!1){for(b in c)a.addButton(c[b]);u(a,"destroy",a.
       if (messageTag === "redraw world") { Physics.redrawWorld(); };
       if (messageTag === "remove debug draw") { Physics.removeDebugDraw(); };
       if (messageTag === "drag") { Physics.drag(message);}
+      if (messageTag === "apply force") { Physics.applyForce(message);}
+      if (messageTag === "apply impulse") { Physics.applyImpulse(message);}
     };
     
     HubnetManager.prototype.gbccRunCode = function(x) {
@@ -60228,8 +60230,10 @@ globals [
   body-B
   joint
   fixture
+  target
   fixture-ind
   joint-ind
+  target-ind
 ]  
   
 turtles-own [
@@ -60253,6 +60257,10 @@ turtles-own [
   joint-index ;; joint-coords index
   joint-coords ;; helpers for joints
   joint-id
+  
+  target-coords ;; helpers for targets
+  target-id
+  target-index
 
   old-body-id ;; body
 
@@ -60308,7 +60316,7 @@ end
 ;; CONTROL BOX2D WORLD ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;
 
-to setup
+to reset
   physics-eval "create world" (list gravity-x gravity-y (list world-height world-width))
   ask turtles with [ type-of-turtle = "body" ] [
     physics-eval "add body" ( list id body-behavior body-A-id coords heading )
@@ -60334,6 +60342,11 @@ to setup
   show-skeleton
 end
 
+to setup
+  ca
+  gbcc-run-code code-for-box2d-world
+end
+
 to go
   every 0.25 [
     if (show-skeleton?) [ hide-skeleton ]
@@ -60353,7 +60366,24 @@ to load-demo
 end
 
 to push-forward
-
+  let bodies (list)
+  ask turtles with [type-of-turtle = "target" and selected? = true ] 
+  [ set bodies lput id bodies ]
+  (foreach bodies
+    [ [body] ->
+      ask turtle body [
+        show id 
+        show body-A-id 
+        show coords 
+        show target-coords 
+        show push-fd-amount      
+        ifelse (push-target-forward = "apply force") [
+          physics-eval "apply force" (list id body-A-id coords target-coords push-fd-amount )       
+        ] [
+          physics-eval "apply impulse" (list id body-A-id coords target-coords push-fd-amount )       
+        ]
+      ]    
+    ])
 end
 
 to push-around
@@ -60361,6 +60391,8 @@ to push-around
 end
 
 to setup-box2d-world
+  clear-all
+  startup
   gbcc-run-code code-for-box2d-world
 end
 
@@ -60385,6 +60417,8 @@ end
 to add-shape
   every 0.1 [
     if (mouse-down?) [ 
+      let temp-color random 7 * 10 + 54 + random 3
+      
       set body-A -1
       create-turtles 1 [
         set type-of-turtle "body"
@@ -60395,6 +60429,7 @@ to add-shape
         set coords (list precision xcor 2 precision ycor 2)
         set body-A-id who
         set heading 0
+        set default-color random 14 * 10 + 4 + random 3
       ]
       
       create-turtles 1 [
@@ -60409,13 +60444,12 @@ to add-shape
         let temp-fixture-coords (list)
         setxy mouse-xcor mouse-ycor
         if (fixture-shape = "triangle") [ set num-coords 3 ]
-        if (fixture-shape = "quadrilateral") [ set num-coords 4 ]
-        if (fixture-shape = "pentagon") [ set num-coords 5 ]
+        if (fixture-shape = "box") [ set num-coords 4 ]
         let fixture-angle 360 / num-coords
         while [ num-coords > 0 ] [
           hatch 1 [
             set type-of-turtle "temp-fixture-coords"
-            set heading fixture-angle * num-coords
+            set heading fixture-angle * num-coords + 45
             fd 1
             set temp-fixture-coords lput (list precision xcor 2 precision ycor 2 ) temp-fixture-coords
           ]
@@ -60425,7 +60459,7 @@ to add-shape
         set fixture-coords temp-fixture-coords
       ]
       ;;setup-debug-draw
-      setup
+      reset
       stop 
     ]
   ]
@@ -60447,7 +60481,7 @@ to select
           ask one-of turtles-here with [type-of-turtle = "body"] [
             ifelse (selected? = true) [
               set selected? false
-              set color violet
+              set color default-color
             ] [
               set selected? true
               set color yellow
@@ -60459,9 +60493,38 @@ to select
           ask one-of turtles-here with [type-of-turtle = "target"] [
             ifelse (selected? = true) [
               set selected? false
-              set color red
+              set color orange
             ] [
               set selected? true
+              set color yellow
+            ]
+          ]
+        ]
+        if count turtles-here with [ type-of-turtle = "fixture-coords" ] > 0 [
+          let already-selected? false
+
+          ask one-of turtles-here with [type-of-turtle = "fixture-coords"] [
+            ask turtle fixture-id [ set already-selected? selected? ]      
+          ]
+          ask turtles with [ type-of-turtle = "fixture-coords"]
+          [
+            set color default-color
+            ask turtle fixture-id [ set selected? false]
+          ]
+          let temp-fixture-id -1    
+          if (not already-selected?) [
+            ask one-of turtles-here with [type-of-turtle = "fixture-coords"] [
+              set temp-fixture-id fixture-id
+              set body-A body-A-id         
+            ]
+            ask turtle body-A-id [ set behavior body-behavior ]
+            ask turtle temp-fixture-id [
+              set selected? true
+              set density item 0 fixture-settings
+              set friction item 1 fixture-settings
+              set restitution item 2 fixture-settings
+            ]
+            ask turtles with [fixture-id = temp-fixture-id] [
               set color yellow
             ]
           ]
@@ -60474,21 +60537,28 @@ end
 
 
 to drag
-  let turtle-type-list [ "body" "fixture" "fixture-coords" "target" "revolute-joint" "prismatic-joint" "distance-joint" "joint-coords"]
+  let turtle-type-list [ "body" "fixture" "fixture-coords" "target" "revolute-joint" "prismatic-joint" "distance-joint" "joint-coords" "target-coords"]
 
   every 0.1 [
+    if (mouse-state = 0) [ set mouse-state "up" ]
     ifelse (mouse-down? and mouse-state = "up") [
-      show "mouse-down"
       set mouse-state "drag"
+      show "mousedown"
       ask patch mouse-xcor mouse-ycor [
         if count turtles-here with [ member? type-of-turtle turtle-type-list ] > 0 [
           ask one-of turtles-here [ 
+            show type-of-turtle
             set dragger-type type-of-turtle 
             set dragger-id who 
             if (type-of-turtle = "fixture-coords") [
               set body-A body-A-id
               set fixture fixture-id
               set fixture-ind fixture-index
+            ]
+            if (type-of-turtle = "target-coords") [
+              set body-A body-A-id
+              set target target-id
+              set target-ind target-index
             ]
             if (type-of-turtle = "joint-coords") [
               set body-A body-A-id
@@ -60498,11 +60568,9 @@ to drag
             ]
           ]
         ]
-        show dragger-id
       ]
     ][
       ifelse (not mouse-down? and mouse-state = "drag" ) [
-        show "mouse-up"
         set mouse-state "up"
         if (dragger-type = "fixture-coords") [
           ask turtle fixture [
@@ -60512,6 +60580,11 @@ to drag
         if (dragger-type = "joint-coords") [        
           ask turtle joint [
             set joint-coords replace-item joint-ind joint-coords (list mouse-xcor mouse-ycor)
+          ]
+        ]
+        if (dragger-type = "target-coords") [        
+          ask turtle target [
+            set target-coords replace-item target-ind target-coords (list mouse-xcor mouse-ycor)
           ]
         ]
         if (member? dragger-type ["body" "fixture" "revolute-joint" "prismatic-joint" "distance-joint" "target"]) [
@@ -60527,8 +60600,6 @@ to drag
         set joint-ind -1
       ] [
         if (mouse-down? and mouse-state = "drag") [
-          show "mouse-drag"
-          show dragger-id
           if (member? dragger-type turtle-type-list) [
             ask turtle dragger-id [ setxy mouse-xcor mouse-ycor ]          
           ]
@@ -60542,12 +60613,23 @@ to save
   save-setup
 end
 
-to delete2
-
-end
-
 to update-shape
-
+  ask one-of turtles with [type-of-turtle = "fixture" and selected? = true ] [
+    set body-A body-A-id
+    set fixture fixture-id
+    set fixture-settings (list density friction restitution )
+  ]
+  ask turtles with [fixture-id = fixture] [
+    set color default-color
+  ]
+  ask turtle body-A [
+    set body-behavior behavior
+    set color default-color
+  ]
+  ask turtles with [type-of-turtle = "body" and selected? = true ] [
+    set selected? false
+    set color default-color
+  ]
 end
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -60555,7 +60637,25 @@ end
 ;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 to glue-together
-
+  every 0.1 [
+    if (mouse-down?) [
+      let bodies (list)
+      if (count turtles with [type-of-turtle = "body" and selected? = true ] > 0 ) [
+        ask turtles with [type-of-turtle = "body" and selected? = true ] [ set bodies lput body-A-id bodies ]
+        if (length bodies = 2) [
+          set body-A item 0 bodies
+          set body-B item 1 bodies
+          
+          ;; find all fixtures from bodyB and make that parent body-A
+          ask turtles with [type-of-turtle = "fixture" and body-A-id = body-A] [
+            set body-A-id body-B
+          ]
+          ask turtle body-A [ die ]
+        ]
+      ]
+      setup-debug-draw
+    ]
+  ]
 end
 
 to add-revolute-joint2
@@ -60567,7 +60667,42 @@ to add-distance-joint2
 end
 
 to add-prismatic-joint
-
+  every 0.1 [
+    if (mouse-down?) [
+      let bodies (list)
+      if (count turtles with [type-of-turtle = "body" and selected? = true ] > 0 ) [
+        ask turtles with [type-of-turtle = "body" and selected? = true ] [ set bodies lput body-A-id bodies ]
+        if (length bodies = 2) [
+          create-turtles 1 [
+            set type-of-turtle "prismatic-joint"
+            set id who
+            set coords (list precision mouse-xcor 2 precision mouse-ycor 2 )
+            set body-A-id item 0 bodies
+            set body-B-id item 1 bodies
+            let temp-joint-coords (list)
+            set joint-id who
+            setxy mouse-xcor mouse-ycor
+            hatch 1 [
+              set type-of-turtle "temp-joint-coords"
+              set heading 270
+              fd 1
+              set temp-joint-coords lput (list precision xcor 2 precision ycor 2 ) temp-joint-coords
+            ]
+            hatch 1 [
+              set type-of-turtle "temp-joint-coords"
+              set heading 90
+              fd 1
+              set temp-joint-coords lput (list precision xcor 2 precision ycor 2 ) temp-joint-coords
+            ]
+            ask turtles with [type-of-turtle = "temp-joint-coords"] [ die ]
+            set joint-coords temp-joint-coords
+          ]
+          setup-debug-draw
+          stop
+        ]
+      ]
+    ]
+  ]
 end
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -60651,6 +60786,7 @@ to save-setup
    set code-for-box2d-world (word code-for-box2d-world "  set coords " coords " \n")
    set code-for-box2d-world (word code-for-box2d-world "  set body-behavior \"" body-behavior "\" \n")
    set code-for-box2d-world (word code-for-box2d-world "  set body-A-id " who " \n")
+   set code-for-box2d-world (word code-for-box2d-world "  set default-color " default-color " \n")
 ;   set code-for-box2d-world (word code-for-box2d-world "  set id " who " \n")
    set code-for-box2d-world (word code-for-box2d-world "  set heading " heading " \n")
    set code-for-box2d-world (word code-for-box2d-world "]  \n")
@@ -60715,8 +60851,8 @@ to save-setup
  set code-for-box2d-world (word code-for-box2d-world "     if not (joint-coords) [ set joint-coords \"\" ]\n")
  set code-for-box2d-world (word code-for-box2d-world "     if not (joint-id) [ set joint-id \"\" ]\n")
  set code-for-box2d-world (word code-for-box2d-world "     if not (old-body-id) [ set old-body-id \"\" ]\n")
- set code-for-box2d-world (word code-for-box2d-world "     if not (first-coord-id) [ set first-coord-id \"\" ]\n")
- set code-for-box2d-world (word code-for-box2d-world "     if not (prev-coord-id) [ set prev-coord-id \"\" ]\n")
+ ; set code-for-box2d-world (word code-for-box2d-world "     if not (first-coord-id) [ set first-coord-id \"\" ]\n")
+ ; set code-for-box2d-world (word code-for-box2d-world "     if not (prev-coord-id) [ set prev-coord-id \"\" ]\n")
  set code-for-box2d-world (word code-for-box2d-world "     if not (angle) [ set angle \"\" ]\n")
  set code-for-box2d-world (word code-for-box2d-world "  ]\n")
 
@@ -60742,7 +60878,7 @@ to setup-debug-draw
     show-turtle
     setxy item 0 coords item 1 coords
     ifelse (body-behavior = "dynamic") [ set shape "star" ] [ ifelse (body-behavior = "static") [ set shape "square" ] [ set shape "ghost" ] ]
-    set color violet
+    set color default-color
     set size 1
     setxy item 0 coords item 1 coords
     set label id
@@ -60755,12 +60891,12 @@ to setup-debug-draw
     show-turtle
     set shape "circle 2"
     ;;set color random 14 * 10 + 2
-    set color length fixture-coords * 20 + 44
-    if (fixture-shape = "circle") [ set color 20 + 44 ]
+    set color [color] of turtle body-A-id
     set default-color color
+    let temp-color color
     set size 1
     setxy item 0 coords item 1 coords
-    set label body-A-id
+    ;;set label body-A-id
     set body-A body-A-id
     set index 0
     set selected? false
@@ -60773,35 +60909,51 @@ to setup-debug-draw
           set type-of-turtle "fixture-coords"
           setxy item 0 coord item 1 coord
           set shape "circle"
-          ifelse (first-coord-id = -1 and fixture-shape = "circle")
-          [ set label "x  " set label-color black ]
-          [ set label "" ]
+          if (first-coord-id = -1 and fixture-shape = "circle")
+          [ set label "O  " set label-color black]
           set size 0.75
           ifelse (first-coord-id = -1) [
             set first-coord-id who
           ]
-          [ create-link-with turtle prev-coord-id ]
+          [ create-link-with turtle prev-coord-id [ set color temp-color ] ]
           set prev-coord-id who
         ] ] )
-     ask turtle prev-coord-id [ create-link-with turtle first-coord-id ]
+     ask turtle prev-coord-id [ create-link-with turtle first-coord-id [ set color temp-color ]]
      ht
   ]
   ask turtles with [ type-of-turtle = "target" ] [
     show-turtle
-    set shape "triangle"
-    set color red
-    set size 0.75
+    set size 1
     setxy item 0 coords item 1 coords
-    set label body-A-id
     set selected? false
+    let coord item 0 target-coords
+    hatch 1 [
+      show-turtle
+      set joint-index 0
+      set type-of-turtle "target-coords"
+      setxy item 0 coord item 1 coord
+      set shape "target"
+      set label body-A
+      set size 0.75
+      set prev-coord-id who
+    ]
+    set coord item 1 target-coords
+    hatch 1 [
+      show-turtle
+      set joint-index 1
+      set type-of-turtle "target-coords"
+      setxy item 0 coord item 1 coord
+      set shape "circle 2"
+      set size 0.5
+      create-link-with turtle prev-coord-id [ set color gray ]
+    ]
+    ht
   ]
   ask turtles with [ type-of-turtle = "distance-joint" ] [
     show-turtle
-    set shape "circle 2"
-    set color 6 * 20 + 44
+    set color 15
     set size 1
     setxy item 0 coords item 1 coords
-    set label (word body-A-id ", " body-B-id)
     set selected? false
     let coord item 0 joint-coords
     hatch 1 [
@@ -60809,10 +60961,9 @@ to setup-debug-draw
       set joint-index 0
       set type-of-turtle "joint-coords"
       setxy item 0 coord item 1 coord
-      set shape "circle"
-      set label ""
+      set shape "circle 2"
       set size 0.75
-      create-link-with turtle body-A-id
+      create-link-with turtle body-A-id [ set color 15 ]
       set prev-coord-id who
     ]
     set coord item 1 joint-coords
@@ -60821,34 +60972,61 @@ to setup-debug-draw
       set joint-index 1
       set type-of-turtle "joint-coords"
       setxy item 0 coord item 1 coord
-      set shape "circle"
-      set label ""
+      set shape "circle 2"
       set size 0.75
-      create-link-with turtle body-B-id
-      create-link-with turtle prev-coord-id
+      create-link-with turtle body-B-id [ set color 15 ]
+      create-link-with turtle prev-coord-id [ set color 15 ]
     ]
+    ht
   ]
-  ask turtles with [ type-of-turtle = "revolute-joint" ] [
+  ask turtles with [ type-of-turtle = "prismatic-joint" ] [
     show-turtle
-    set shape "circle 2"
-    set color 7 * 20 + 44
+    set color 25
     set size 1
     setxy item 0 coords item 1 coords
-    set label (word body-A-id ", " body-B-id)
     set selected? false
-
     let coord item 0 joint-coords
     hatch 1 [
       show-turtle
       set joint-index 0
       set type-of-turtle "joint-coords"
       setxy item 0 coord item 1 coord
-      set shape "circle"
-      set label ""
+      set shape "circle 2"
       set size 0.75
-      create-link-with turtle body-A-id
-      create-link-with turtle body-B-id
+      create-link-with turtle body-A-id [set color 25]
+      set prev-coord-id who
     ]
+    set coord item 1 joint-coords
+    hatch 1 [
+      show-turtle
+      set joint-index 1
+      set type-of-turtle "joint-coords"
+      setxy item 0 coord item 1 coord
+      set shape "circle 2"
+      set size 0.75
+      create-link-with turtle body-B-id [ set color 25 ]
+      create-link-with turtle prev-coord-id [ set color 25 ]
+    ]
+    ht
+  ]
+  ask turtles with [ type-of-turtle = "revolute-joint" ] [
+    show-turtle
+    set color 35
+    set size 1
+    setxy item 0 coords item 1 coords
+    set selected? false
+    let coord item 0 joint-coords
+    hatch 1 [
+      show-turtle
+      set joint-index 0
+      set type-of-turtle "joint-coords"
+      setxy item 0 coord item 1 coord
+      set shape "circle 2"
+      set size 0.75
+      create-link-with turtle body-A-id [ set color 35 ]
+      create-link-with turtle body-B-id [ set color 35 ]
+    ]
+    ht
   ]
 
 end
@@ -60860,6 +61038,8 @@ to remove-debug-draw
   ask turtles with [ type-of-turtle = "target" ] [ hide-turtle ]
   ask turtles with [ type-of-turtle = "joint" ] [ hide-turtle ]
   ask turtles with [ type-of-turtle = "joint-coords" ] [ die ]
+  ask turtles with [type-of-turtle = "target"] [hide-turtle]
+  ask turtles with [ type-of-turtle = "target-coords" ] [ die ]
 end
 
 ;;;;;;;;;;;;;;;;
@@ -60894,21 +61074,20 @@ to delete
             set dragger-type "target"
           ]
         ]
-        if count turtles-here with [ type-of-turtle = "revolute-joint" ] > 0 [
-          ask turtles-here with [type-of-turtle = "revolute-joint" ] [
-            set dragger-id who
-            set dragger-type "revolute-joint"
+        if count turtles-here with [ type-of-turtle = "joint-coords" ] > 0 [
+          ask turtles-here with [type-of-turtle = "joint-coords" ] [
+            set dragger-id joint-id
+            set dragger-type "joint-coords"
           ]
         ]
-        if count turtles-here with [ type-of-turtle = "distance-joint" ] > 0 [
-          ask turtles-here with [type-of-turtle = "distance-joint" ] [
-            set dragger-id who
-            set dragger-type "distance-joint"
+        if count turtles-here with [ type-of-turtle = "target-coords" ] > 0 [
+          ask turtles-here with [type-of-turtle = "target-coords" ] [
+            set dragger-id target-id
+            set dragger-type "target-coords"
           ]
         ]
       ]
       if (dragger-type = "body") [
-        ask turtle dragger-id [ die ]
         ask turtles with [ body-A-id = dragger-id ] [ die ]
       ]
       if (dragger-type = "fixture") [
@@ -60922,19 +61101,11 @@ to delete
       if (dragger-type = "target") [
         ask turtle dragger-id [ die ]
       ]
-      if (dragger-type = "revolute-joint") [
-        ask turtle dragger-id [
-          set joint who
-          die
-        ]
-        ask turtles with [joint = joint-id ] [ die ]
+      if (dragger-type = "joint-coords") [
+        ask turtles with [joint-id = dragger-id] [ die ]
       ]
-      if (dragger-type = "distance-joint") [
-        ask turtle dragger-id [
-          set joint who
-          die
-        ]
-        ask turtles with [joint = joint-id ] [ die ]
+      if (dragger-type = "target-coords") [
+        ask turtles with [target-id = dragger-id] [ die ]
       ]
     ]
   ]
@@ -61077,12 +61248,34 @@ to add-target
       set body-A -1
       if (count turtles with [type-of-turtle = "body" and selected? = true ] > 0 ) [
         ask one-of turtles with [type-of-turtle = "body" and selected? = true ] [ set body-A body-A-id ]
+        
         create-turtles 1 [
           set type-of-turtle "target"
           set id who
           set coords (list precision mouse-xcor 2 precision mouse-ycor 2)
           set body-A-id body-A
+          set target-id who
+          let num-coords 2
+          let temp-target-coords (list)
+          setxy mouse-xcor mouse-ycor
+          let target-angle 360 / num-coords
+            hatch 1 [
+              set type-of-turtle "temp-target-coords"
+              set heading target-angle
+              fd 1
+              set temp-target-coords lput (list precision xcor 2 precision ycor 2 ) temp-target-coords
+              set label body-A
+            ]
+            hatch 1 [
+              set type-of-turtle "temp-target-coords"
+              set heading target-angle * 2
+              fd 1
+              set temp-target-coords lput (list precision xcor 2 precision ycor 2 ) temp-target-coords
+            ]
+          ask turtles with [type-of-turtle = "temp-target-coords"] [ die ]
+          set target-coords temp-target-coords
         ]
+
         setup-debug-draw
         stop
       ]
@@ -61116,69 +61309,6 @@ end
 ;; ADD FORCES/IMPULSES TO WORLD ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-to select-target
-  every 0.1 [
-    if (mouse-down?) [
-      ask patch mouse-xcor mouse-ycor [
-        if count turtles-here with [ type-of-turtle = "target" ] > 0 [
-          ask one-of turtles-here with [type-of-turtle = "target"] [
-            ifelse (selected? = true) [
-              set selected? false
-              set color red
-            ] [
-              set selected? true
-              set color yellow
-            ]
-          ]
-        ]
-      ]
-    ]
-  ]
-end
-
-to select-body
-  every 0.1 [
-    if (mouse-down?) [
-      ask patch mouse-xcor mouse-ycor [
-        if count turtles-here with [ type-of-turtle = "body" ] > 0 [
-          ask one-of turtles-here with [type-of-turtle = "body"] [
-            ifelse (selected? = true) [
-              set selected? false
-              set color violet
-            ] [
-              ask turtles with [ type-of-turtle = "body" and selected? = true] [ set selected? false set color violet ]
-              set selected? true
-              set color yellow
-              set behavior body-behavior
-            ]
-          ]
-        ]
-      ]
-    ]
-  ]
-end
-
-to select-2-bodies
-  every 0.1 [
-    if (mouse-down?) [
-      ask patch mouse-xcor mouse-ycor [
-        if count turtles-here with [ type-of-turtle = "body" ] > 0 [
-          ask one-of turtles-here with [type-of-turtle = "body"] [
-            ifelse (selected? = true) [
-              set selected? false
-              set color violet
-            ] [
-              set selected? true
-              set color yellow
-              set behavior body-behavior
-            ]
-          ]
-        ]
-      ]
-    ]
-  ]
-end
-
 to select-fixture
   every 0.1 [
     if (mouse-down?) [
@@ -61203,6 +61333,7 @@ to select-fixture
     ]
   ]
 end
+
 @#$#@#$#@
 GRAPHICS-WINDOW
 339
@@ -61238,7 +61369,7 @@ CHOOSER
 265
 shape-of-fixture
 shape-of-fixture
-"edge" "circle" "triangle" "quadrilateral" "pentagon"
+"edge" "circle" "triangle" "box"
 1
 
 BUTTON
@@ -61335,7 +61466,7 @@ BUTTON
 498
 439
 531
-save
+save-as-code
 save
 NIL
 1
@@ -61390,10 +61521,10 @@ NIL
 1
 
 BUTTON
-338
-538
-439
-571
+446
+498
+547
+531
 delete
 delete
 T
@@ -61431,7 +61562,7 @@ BUTTON
 496
 165
 529
-load-box2d-world
+load-code
 load-demo
 NIL
 1
@@ -61521,7 +61652,7 @@ BUTTON
 167
 45
 reset
-setup
+reset
 NIL
 1
 T
@@ -61581,7 +61712,7 @@ TEXTBOX
 126
 1322
 168
-Select a body. Click on a location for the target.
+Select a shape. Click on a location for the target.
 11
 0.0
 1
@@ -61648,27 +61779,9 @@ UPDATE SHAPE
 0.0
 1
 
-SWITCH
-994
-324
-1145
-357
-allow-collisions
-allow-collisions
-1
-1
--1000
 
-SWITCH
-842
-391
-971
-424
-is-sensor
-is-sensor
-1
-1
--1000
+
+
 
 CHOOSER
 1178
@@ -61767,7 +61880,7 @@ BUTTON
 539
 1314
 572
-push-around
+(push-around)
 push-around
 NIL
 1
@@ -61794,22 +61907,7 @@ push-around-amount
 NIL
 HORIZONTAL
 
-BUTTON
-995
-283
-1144
-316
-NIL
-add-prismatic-joint
-T
-1
-T
-OBSERVER
-NIL
-NIL
-NIL
-NIL
-1
+
 
 BUTTON
 191
@@ -61828,44 +61926,37 @@ NIL
 NIL
 1
 
+BUTTON
+220
+497
+326
+530
+run-code
+setup
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
 @#$#@#$#@
-## WHAT IS IT?
+## PLANNED FEATURES:
 
-http://www.iforce2d.net/b2dtut/fixtures
+DESTRUCTION SENSORS - If a shape or joint is hit with a certain magnetitude of collision, then it is destroyed.
 
-(a general understanding of what the model is trying to show or explain)
+FAMILY NAME - Each shape can have a "family" name (like a breed).
 
-## HOW IT WORKS
+FAMILY COLLISIONS - A set of rules defining which families collide with which other families.
 
-(what rules the agents use to create the overall behavior of the model)
+COLLISIONS BETWEEN BODIES CONNECTED WITH JOINTS - Whether fixtures from bodies that are connected by joints can collide into each other
 
-## HOW TO USE IT
+PRISMATIC JOINT - bodies can slide along an axis
 
-(how to use the model, including a description of each of the items in the Interface tab)
 
-## THINGS TO NOTICE
-
-(suggested things for the user to notice while running the model)
-
-## THINGS TO TRY
-
-(suggested things for the user to try to do (move sliders, switches, etc.) with the model)
-
-## EXTENDING THE MODEL
-
-(suggested things to add or change in the Code tab to make the model more complicated, detailed, accurate, etc.)
-
-## NETLOGO FEATURES
-
-(interesting or unusual features of NetLogo that the model uses, particularly in the Code tab; or where workarounds were needed for missing features)
-
-## RELATED MODELS
-
-(models in the NetLogo Models Library and elsewhere which are of related interest)
-
-## CREDITS AND REFERENCES
-
-(a reference to the model's URL on the web if it has one, as well as any other necessary credits, citations, and links)
 @#$#@#$#@
 default
 true
@@ -62108,7 +62199,7 @@ Rectangle -7500403 true true 30 30 270 270
 Rectangle -16777216 true false 60 60 240 240
 
 star
-false
+true
 0
 Polygon -7500403 true true 151 1 185 108 298 108 207 175 242 282 151 216 59 282 94 175 3 108 116 108
 
